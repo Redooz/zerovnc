@@ -55,6 +55,12 @@ function config(overrides: Partial<AppConfig> = {}): AppConfig {
     databasePath: ":memory:",
     artifactDir: "./artifacts-test",
     taskTimeoutMs: 300_000,
+    models: {
+      perception: "anthropic/claude-haiku-5.5",
+      perceptionFallback: "deepseek/deepseek-v4.1-flash",
+      decision: "jev-latest",
+      decisionFallback: "openai/gpt-6-luna-decisions",
+    },
     ...overrides,
   };
 }

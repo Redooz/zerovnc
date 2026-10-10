@@ -102,9 +102,15 @@ async function runOne(loaded: LoadedFixture, options: EvalOptions, timing: Timin
   let outcome: AgentOutcome | null = null;
   let timedOut = false;
   for (;;) {
+    // Do not start a poll once the budget is spent, and bound the request by what is left.
+    const remainingBeforePoll = timing.deadlineMs - (timing.now() - started);
+    if (remainingBeforePoll <= 0) {
+      timedOut = true;
+      break;
+    }
     let current: AgentOutcome | null = null;
     try {
-      current = await options.agent.poll(taskId);
+      current = await options.agent.poll(taskId, { timeoutMs: remainingBeforePoll });
     } catch {
       // Transient poll errors are retried until the deadline.
     }

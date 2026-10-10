@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { AgentSubmission } from "../fixtures.ts";
 import type { AgentOutcome } from "../graders/index.ts";
-import type { AgentClient } from "../ports.ts";
+import type { AgentClient, RequestBudget } from "../ports.ts";
 
 const TaskAcceptedSchema = z.object({ task_id: z.string().min(1) });
 const TaskStatusSchema = z.object({ estado: z.string(), resumen: z.string() });
@@ -15,12 +15,12 @@ export class HttpAgentClient implements AgentClient {
     private readonly requestTimeoutMs: number = 10_000,
   ) {}
 
-  async submit(submission: AgentSubmission): Promise<string> {
+  async submit(submission: AgentSubmission, budget?: RequestBudget): Promise<string> {
     const response = await fetch(new URL("/tasks", this.baseUrl), {
       method: "POST",
       headers: this.headers({ "content-type": "application/json" }),
       body: JSON.stringify(submission),
-      signal: AbortSignal.timeout(this.requestTimeoutMs),
+      signal: AbortSignal.timeout(this.limit(budget)),
     });
     if (!response.ok) {
       throw new Error(`POST /tasks failed with status ${response.status}`);
@@ -32,10 +32,10 @@ export class HttpAgentClient implements AgentClient {
     return parsed.data.task_id;
   }
 
-  async poll(taskId: string): Promise<AgentOutcome> {
+  async poll(taskId: string, budget?: RequestBudget): Promise<AgentOutcome> {
     const response = await fetch(new URL(`/tasks/${encodeURIComponent(taskId)}`, this.baseUrl), {
       headers: this.headers(),
-      signal: AbortSignal.timeout(this.requestTimeoutMs),
+      signal: AbortSignal.timeout(this.limit(budget)),
     });
     if (!response.ok) {
       throw new Error(`GET /tasks/${taskId} failed with status ${response.status}`);
@@ -45,6 +45,15 @@ export class HttpAgentClient implements AgentClient {
       throw new Error("GET /tasks/{id} returned an unexpected body");
     }
     return parsed.data;
+  }
+
+  // The smaller of the fixed request timeout and the caller's remaining budget.
+  private limit(budget: RequestBudget | undefined): number {
+    const remaining = budget?.timeoutMs ?? Number.POSITIVE_INFINITY;
+    if (remaining <= 0) {
+      throw new Error("request budget exhausted");
+    }
+    return Math.min(this.requestTimeoutMs, remaining);
   }
 
   private headers(extra: Record<string, string> = {}): Record<string, string> {
