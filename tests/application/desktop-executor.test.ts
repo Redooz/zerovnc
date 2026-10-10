@@ -289,4 +289,47 @@ describe("desktop executor", () => {
     const pointers = session.events.filter((e) => e.kind === "pointer");
     expect(pointers.at(-1)).toMatchObject({ buttons: 0, x: 3, y: 3 });
   });
+
+  test("held input is not released past the task deadline", async () => {
+    const deadlineAt = new Date(Date.now() + 60_000);
+    const session = new RecordingSession();
+    const controller = new AbortController();
+    const executor = new DesktopExecutor({
+      session,
+      clock: { now: () => new Date() },
+      ids: { next: () => "obs" },
+      screen: { width: W, height: H },
+      signal: controller.signal,
+      deadlineAt,
+      // The clock reads past the deadline when cleanup runs, so no release may be sent.
+      now: () => deadlineAt.getTime() + 1,
+      timing: { clickHoldMs: 2_000, repaintMs: 0, keyGapMs: 0 },
+    });
+    const id = (await executor.observe()).observationId;
+    const batch = executor.run([{ kind: "click", x: 4, y: 4, observationId: id }]);
+    setTimeout(() => controller.abort(new DesktopError("cancelled", "stop")), 30);
+    await batch;
+    const pointers = session.events.filter((e) => e.kind === "pointer");
+    expect(pointers).toEqual([{ kind: "pointer", buttons: 1, x: 4, y: 4 }]);
+  });
+
+  test("held input is released before the deadline even after cancellation", async () => {
+    const deadlineAt = new Date(Date.now() + 60_000);
+    const session = new RecordingSession();
+    const controller = new AbortController();
+    const executor = new DesktopExecutor({
+      session,
+      clock: { now: () => new Date() },
+      ids: { next: () => "obs" },
+      screen: { width: W, height: H },
+      signal: controller.signal,
+      deadlineAt,
+      timing: { clickHoldMs: 2_000, repaintMs: 0, keyGapMs: 0 },
+    });
+    const id = (await executor.observe()).observationId;
+    const batch = executor.run([{ kind: "click", x: 4, y: 4, observationId: id }]);
+    setTimeout(() => controller.abort(new DesktopError("cancelled", "stop")), 30);
+    await batch;
+    expect(session.events.filter((e) => e.kind === "pointer").at(-1)).toMatchObject({ buttons: 0 });
+  });
 });
