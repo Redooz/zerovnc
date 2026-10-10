@@ -100,6 +100,7 @@ export class ExecuteTask {
         ids: this.deps.ids,
         screen: session.screen,
         signal: lease.signal,
+        deadlineAt: task.deadlineAt,
         trace: {
           taskId: task.id,
           recorder: this.deps.trace,

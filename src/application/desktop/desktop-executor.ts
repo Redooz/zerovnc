@@ -48,6 +48,10 @@ export interface ExecutorOptions {
   readonly screen: { readonly width: number; readonly height: number };
   // Lease signal: aborts at the task deadline or on cancellation.
   readonly signal: AbortSignal;
+  // Task deadline. Held-input release may not run past it.
+  readonly deadlineAt?: Date;
+  // Injected for tests; defaults to the system clock.
+  readonly now?: () => number;
   readonly timing?: ExecutorTiming;
   // Optional tracing. Without it the executor records nothing.
   readonly trace?: {
@@ -321,8 +325,14 @@ export class DesktopExecutor {
       this.held.length = 0;
       return;
     }
-    // Releases ignore the lease signal (it may be aborted by cancellation) but get their own short budget.
-    const signal = AbortSignal.timeout(RELEASE_BUDGET_MS);
+    // Releases ignore the lease signal (it may be aborted by cancellation) but get a short
+    // budget, capped by the task deadline so cleanup never sends input past it.
+    const budget = this.releaseBudgetMs();
+    if (budget <= 0) {
+      this.held.length = 0;
+      return;
+    }
+    const signal = AbortSignal.timeout(budget);
     for (const held of [...this.held].reverse()) {
       try {
         if (held.kind === "key") {
@@ -336,6 +346,12 @@ export class DesktopExecutor {
       }
     }
     this.held.length = 0;
+  }
+
+  private releaseBudgetMs(): number {
+    const now = this.options.now?.() ?? Date.now();
+    const untilDeadline = this.options.deadlineAt ? this.options.deadlineAt.getTime() - now : Infinity;
+    return Math.min(RELEASE_BUDGET_MS, untilDeadline);
   }
 
   private removeHeld(match: (held: Held) => boolean): void {
