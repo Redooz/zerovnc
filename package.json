@@ -7,7 +7,9 @@
     "start": "bun run src/bootstrap/main.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
-    "eval": "bun run evals/runner.ts"
+    "eval": "bun run evals/runner.ts",
+    "timeline": "bun run src/bootstrap/timeline.ts",
+    "bench:desktop": "bun run src/bootstrap/bench-desktop.ts"
   },
   "dependencies": {
     "zod": "4.6.5"

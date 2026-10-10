@@ -64,7 +64,7 @@ describe("SqliteTaskRepository", () => {
     const db = openDatabase(":memory:");
     expect(migrate(db)).toBe(0);
     const rows = db.query<{ version: number }, []>("SELECT version FROM schema_migrations").all();
-    expect(rows).toEqual([{ version: 1 }]);
+    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
     db.close();
   });
 

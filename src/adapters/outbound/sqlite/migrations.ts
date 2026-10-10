@@ -24,4 +24,20 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX tasks_status_idx ON tasks (status);
     `,
   },
+  {
+    version: 2,
+    name: "create_trace_events",
+    sql: `
+      CREATE TABLE trace_events (
+        seq            INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id        TEXT NOT NULL,
+        span_id        TEXT NOT NULL,
+        parent_span_id TEXT NULL,
+        kind           TEXT NOT NULL,
+        at             TEXT NOT NULL,
+        payload        TEXT NOT NULL
+      );
+      CREATE INDEX trace_events_task_idx ON trace_events (task_id, seq);
+    `,
+  },
 ];

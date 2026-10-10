@@ -11,6 +11,8 @@ export class HttpAgentClient implements AgentClient {
   constructor(
     private readonly baseUrl: string,
     private readonly token: string,
+    // Every request is bounded so a stalled agent cannot hold the runner past its deadline.
+    private readonly requestTimeoutMs: number = 10_000,
   ) {}
 
   async submit(submission: AgentSubmission): Promise<string> {
@@ -18,6 +20,7 @@ export class HttpAgentClient implements AgentClient {
       method: "POST",
       headers: this.headers({ "content-type": "application/json" }),
       body: JSON.stringify(submission),
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
     if (!response.ok) {
       throw new Error(`POST /tasks failed with status ${response.status}`);
@@ -32,6 +35,7 @@ export class HttpAgentClient implements AgentClient {
   async poll(taskId: string): Promise<AgentOutcome> {
     const response = await fetch(new URL(`/tasks/${encodeURIComponent(taskId)}`, this.baseUrl), {
       headers: this.headers(),
+      signal: AbortSignal.timeout(this.requestTimeoutMs),
     });
     if (!response.ok) {
       throw new Error(`GET /tasks/${taskId} failed with status ${response.status}`);

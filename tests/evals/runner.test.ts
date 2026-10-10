@@ -4,6 +4,7 @@ import { PracticeFixtureSchema, type LoadedFixture, type AgentSubmission } from 
 import type { AgentClient, DesktopControl } from "../../evals/ports.ts";
 import type { AgentOutcome } from "../../evals/graders/index.ts";
 import type { AppStateEvidence } from "../../evals/graders/app-state.ts";
+import { HttpAgentClient } from "../../evals/adapters/http-agent-client.ts";
 
 const PASSWORD = "pw-escritorio-424242";
 
@@ -106,6 +107,55 @@ describe("runEvaluation", () => {
     expect(report.counts.pass).toBe(0);
   });
 
+  test("a result that arrives after the limit does not count as success", async () => {
+    const time = fakeTime();
+    // The agent reports terminada, but only after 301 s.
+    const agent = new ScriptedAgent(() => {
+      return time.now() >= 301_000 ? { estado: "terminada", resumen: "Hecho." } : { estado: "en_curso", resumen: "" };
+    });
+    const report = await runEvaluation({
+      fixtures: [loaded("E1", "terminada")],
+      agent,
+      desktop: new FakeDesktop(OK_EVIDENCE),
+      access: ACCESS,
+      secrets: [PASSWORD],
+      pollIntervalMs: 5_000,
+      deadlineMs: 300_000,
+      sleep: time.sleep,
+      now: time.now,
+    });
+    const run = report.runs[0];
+    expect(run?.timedOut).toBe(true);
+    expect(run?.verdict).toBe("fail");
+  });
+
+  test("the five-minute limit starts after the desktop reset", async () => {
+    const time = fakeTime();
+    // Reset takes 250 s and is not part of the task budget. The task then
+    // finishes about 55 s after submission: 305 s total, which only passes if
+    // the reset time is excluded.
+    const desktop: DesktopControl = {
+      reset: async () => {
+        await time.sleep(250_000);
+      },
+      check: async () => OK_EVIDENCE,
+    };
+    const agent = new ScriptedAgent((i) => (i < 11 ? { estado: "en_curso", resumen: "" } : { estado: "terminada", resumen: "Hecho." }));
+    const report = await runEvaluation({
+      fixtures: [loaded("E1", "terminada")],
+      agent,
+      desktop,
+      access: ACCESS,
+      secrets: [PASSWORD],
+      pollIntervalMs: 5_000,
+      deadlineMs: 300_000,
+      sleep: time.sleep,
+      now: time.now,
+    });
+    expect(report.runs[0]?.timedOut).toBe(false);
+    expect(report.runs[0]?.verdict).toBe("pass");
+  });
+
   test("a failed reset means the task is not sent and is not_evaluated", async () => {
     const time = fakeTime();
     const agent = new ScriptedAgent(() => ({ estado: "terminada", resumen: "" }));
@@ -157,5 +207,41 @@ describe("runEvaluation", () => {
   test("redact replaces every occurrence of each secret", () => {
     expect(redact("a-b-a", ["a"])).toBe("[REDACTED]-b-[REDACTED]");
     expect(redact("nada", [""])).toBe("nada");
+  });
+});
+
+describe("HTTP agent client timeouts", () => {
+  test("a stalled agent request is aborted instead of hanging", async () => {
+    const server = Bun.serve({ port: 0, fetch: () => new Promise<Response>(() => {}) });
+    try {
+      const client = new HttpAgentClient(`http://localhost:${server.port}`, "token-for-test-only-123", 50);
+      const started = Date.now();
+      await expect(client.poll("t1")).rejects.toThrow();
+      expect(Date.now() - started).toBeLessThan(2_000);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("the last poll sleep is capped at the remaining task budget", async () => {
+    const time = fakeTime();
+    const sleeps: number[] = [];
+    const agent = new ScriptedAgent(() => ({ estado: "en_curso", resumen: "" }));
+    const report = await runEvaluation({
+      fixtures: [loaded("E1", "terminada")],
+      agent,
+      desktop: new FakeDesktop(OK_EVIDENCE),
+      access: ACCESS,
+      secrets: [PASSWORD],
+      pollIntervalMs: 5_000,
+      deadlineMs: 12_000,
+      sleep: async (ms) => {
+        sleeps.push(ms);
+        await time.sleep(ms);
+      },
+      now: time.now,
+    });
+    expect(sleeps).toEqual([5_000, 5_000, 2_000]);
+    expect(report.runs[0]?.elapsedMs).toBe(12_000);
   });
 });
