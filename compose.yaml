@@ -1,0 +1,25 @@
+# Runtime secrets come from .env (git-ignored, never baked into the image).
+# Task metadata lives in named volumes and survives container restarts.
+services:
+  agent:
+    build: .
+    image: zerovnc-agent:local
+    env_file:
+      - .env
+    environment:
+      PORT: "8080"
+      DATABASE_PATH: /app/data/agent.sqlite
+      ARTIFACT_DIR: /app/artifacts
+    ports:
+      - "8080:8080"
+    volumes:
+      - agent-data:/app/data
+      - agent-artifacts:/app/artifacts
+    # Time for SIGTERM to cancel running tasks and close the database before
+    # Docker sends SIGKILL. Cancellation is immediate; this is only a margin.
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+volumes:
+  agent-data:
+  agent-artifacts:
