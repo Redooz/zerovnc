@@ -46,11 +46,19 @@ export interface Decision {
 export type TraceEventKind =
   | "task_received"
   | "task_started"
+  | "desktop_queued"
+  | "desktop_acquired"
+  | "desktop_expired"
+  | "desktop_released"
+  | "desktop_connected"
+  | "desktop_disconnected"
   | "observation"
   | "plan"
   | "decision"
   | "action"
   | "verification"
+  | "cancelled"
+  | "deadline_reached"
   | "task_finished"
   | "error";
 

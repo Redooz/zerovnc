@@ -75,18 +75,19 @@ interface Timing {
 
 async function runOne(loaded: LoadedFixture, options: EvalOptions, timing: Timing): Promise<RunReport> {
   const { fixture } = loaded;
-  const started = timing.now();
   const base = { id: fixture.id, nivel: fixture.nivel, file: loaded.file, expectedStatus: fixture.estado_esperado };
 
-  // Reset first so each task starts from the practice data. If the reset fails
-  // the desktop state is unknown, so the task is not sent.
+  // Reset first so each task starts from the practice data. The five-minute
+  // limit starts after the reset, matching the evaluator's own clock. If the
+  // reset fails the desktop state is unknown, so the task is not sent.
   if (options.desktop !== null) {
     try {
       await options.desktop.reset();
     } catch (error) {
-      return notRun(base, `desktop reset failed: ${describe(error)}`, started, timing);
+      return notRun(base, `desktop reset failed: ${describe(error)}`, timing.now(), timing);
     }
   }
+  const started = timing.now();
 
   let taskId: string;
   try {
@@ -101,20 +102,25 @@ async function runOne(loaded: LoadedFixture, options: EvalOptions, timing: Timin
   let outcome: AgentOutcome | null = null;
   let timedOut = false;
   for (;;) {
+    let current: AgentOutcome | null = null;
     try {
-      const current = await options.agent.poll(taskId);
-      if (current.estado !== "en_curso") {
-        outcome = current;
-        break;
-      }
+      current = await options.agent.poll(taskId);
     } catch {
       // Transient poll errors are retried until the deadline.
     }
+    // The deadline is checked before a terminal result is accepted. A result
+    // that arrives after the limit does not count: the task ran out of time.
     if (timing.now() - started >= timing.deadlineMs) {
       timedOut = true;
       break;
     }
-    await timing.sleep(timing.pollIntervalMs);
+    if (current !== null && current.estado !== "en_curso") {
+      outcome = current;
+      break;
+    }
+    // Never sleep past the task limit: a late sleep would delay the timeout verdict.
+    const remaining = timing.deadlineMs - (timing.now() - started);
+    await timing.sleep(Math.min(timing.pollIntervalMs, Math.max(0, remaining)));
   }
 
   const evidence: AppStateEvidence =

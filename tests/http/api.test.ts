@@ -7,6 +7,7 @@ import type { AppConfig } from "../../src/bootstrap/config.ts";
 import type { Logger } from "../../src/application/ports/logger.ts";
 import type { Clock } from "../../src/application/ports/clock.ts";
 import { NOT_IMPLEMENTED_SUMMARY } from "../../src/application/usecases/execute-task.ts";
+import { createScreenshot } from "../../src/domain/desktop/screenshot.ts";
 import { INTERRUPTED_BY_RESTART_SUMMARY } from "../../src/application/usecases/fail-interrupted-tasks.ts";
 
 const TOKEN = "test-token-0123456789abcdef";
@@ -15,6 +16,36 @@ const BASE = "http://agent.test";
 
 const silentLogger: Logger = { info() {}, error() {} };
 const clock: Clock = { now: () => new Date("2026-10-10T12:00:00.000Z") };
+
+// Stub desktop: connects instantly and returns a blank screen, so HTTP tests never
+// open network connections or write artifacts to disk.
+const stubs = {
+  desktopSessions: {
+    async connect() {
+      return {
+        screen: { width: 4, height: 4 },
+        async capture(input: { observationId: string }) {
+          return createScreenshot({
+            observationId: input.observationId,
+            capturedAt: new Date(clock.now()),
+            width: 4,
+            height: 4,
+            frameRevision: 1,
+            rgba: new Uint8Array(4 * 4 * 4),
+          });
+        },
+        async pointer() {},
+        async key() {},
+        async close() {},
+      };
+    },
+  },
+  artifacts: {
+    async storeScreenshot() {
+      return { ref: "test/none.png", sha256: "0", bytes: 0 };
+    },
+  },
+};
 
 function config(overrides: Partial<AppConfig> = {}): AppConfig {
   return {
@@ -56,7 +87,7 @@ let app: App;
 let dir: string;
 
 beforeEach(() => {
-  app = createApp(config(), { logger: silentLogger, clock });
+  app = createApp(config(), { logger: silentLogger, clock, ...stubs });
 });
 
 afterEach(async () => {
@@ -142,7 +173,7 @@ describe("shutdown and restart", () => {
     const response = await post(app, validBody);
     expect(response.status).toBe(503);
     // Restore a live app for afterEach's shutdown to be a no-op.
-    app = createApp(config(), { logger: silentLogger, clock });
+    app = createApp(config(), { logger: silentLogger, clock, ...stubs });
   });
 
   test("tasks interrupted by a restart become fallida, and terminal tasks are kept", async () => {
@@ -150,7 +181,7 @@ describe("shutdown and restart", () => {
     const path = join(dir, "agent.sqlite");
 
     // First process: create a task that stays en_curso (no worker finished it).
-    const first = createApp(config({ databasePath: path }), { logger: silentLogger, clock });
+    const first = createApp(config({ databasePath: path }), { logger: silentLogger, clock, ...stubs });
     const { createTask } = await import("../../src/domain/tasks/task.ts");
     const { SqliteTaskRepository } = await import("../../src/adapters/outbound/sqlite/sqlite-task-repository.ts");
     const repo = new SqliteTaskRepository(first.database);
@@ -160,13 +191,13 @@ describe("shutdown and restart", () => {
     await first.shutdown(); // simulates the process going away
 
     // Second process: startup recovery.
-    const second = createApp(config({ databasePath: path }), { logger: silentLogger, clock });
+    const second = createApp(config({ databasePath: path }), { logger: silentLogger, clock, ...stubs });
     expect(await second.recoverInterruptedTasks()).toBe(1);
     const running = await call(second, "/tasks/running");
     expect(await running.json()).toEqual({ estado: "fallida", resumen: INTERRUPTED_BY_RESTART_SUMMARY });
     const done = await call(second, "/tasks/done");
     expect(await done.json()).toEqual({ estado: "terminada", resumen: "ya estaba" });
     await second.shutdown();
-    app = createApp(config(), { logger: silentLogger, clock }); // keep afterEach valid
+    app = createApp(config(), { logger: silentLogger, clock, ...stubs }); // keep afterEach valid
   });
 });
