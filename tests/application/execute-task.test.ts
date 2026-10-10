@@ -4,8 +4,9 @@ import {
   DEADLINE_SUMMARY,
   EXPIRED_QUEUE_SUMMARY,
   ExecuteTask,
-  NOT_IMPLEMENTED_SUMMARY,
 } from "../../src/application/usecases/execute-task.ts";
+import { ScriptedPlanner } from "../support/agent-doubles.ts";
+import { stubModels } from "../support/agent-doubles.ts";
 import { DesktopOwnership } from "../../src/application/desktop/desktop-ownership.ts";
 import type { DesktopSession, DesktopSessionFactory } from "../../src/application/ports/desktop-session.ts";
 import type { TaskRepository } from "../../src/application/ports/task-repository.ts";
@@ -102,6 +103,9 @@ function harness() {
       return { ref: "x.png", sha256: "0", bytes: 0 };
     },
   };
+  const models = stubModels();
+  // Default planner ends every task with a blocker: the loop observes once and stops.
+  const planner = new ScriptedPlanner(async () => [{ name: "report_blocker", args: { reason: "prueba" } }]);
   const execute = new ExecuteTask({
     repository,
     clock,
@@ -110,6 +114,13 @@ function harness() {
     sessions: desks,
     trace,
     artifacts,
+    agent: {
+      planner,
+      perception: { primary: models.perception.primary, fallback: models.perception.fallback, timeoutMs: 5_000 },
+      perceptionCacheVersion: "test",
+      grounding: { primary: models.decision.primary, fallback: models.decision.fallback, timeoutMs: 5_000 },
+      frameCache: { maxEntries: 4, ttlMs: 60_000 },
+    },
   });
   return { database, desks, repository, trace, traceRepository, execute };
 }
@@ -156,7 +167,7 @@ describe("task execution with desktop ownership", () => {
     expect(h.desks.log).toEqual(["connect:wss://desk-a", "capture:wss://desk-a", "close:wss://desk-a", "save:fallida"]);
     const stored = await statusOf(h, task.id);
     expect(stored?.status).toBe("fallida");
-    expect(stored?.summary).toBe(NOT_IMPLEMENTED_SUMMARY);
+    expect(stored?.summary).toBe("La tarea no se pudo completar: prueba");
   });
 
   test("a queued task expires at its deadline without connecting to the desktop", async () => {

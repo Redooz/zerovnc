@@ -2,8 +2,9 @@
 // usage, and outcome only: never prompts, images, or responses. Screenshots are
 // referenced by observation id.
 export interface ModelCallEvent {
-  readonly role: "perception" | "decision";
-  readonly observationId: string;
+  readonly role: "perception" | "decision" | "planner";
+  // Observation the call was made for; null for planner calls that span several observations.
+  readonly observationId: string | null;
   readonly questionId: string | null;
   readonly configuredModel: string;
   readonly servedBy: string | null;

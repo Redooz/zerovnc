@@ -25,6 +25,13 @@ describe("loadConfig", () => {
     }
   });
 
+  test("provider routing is off by default and can be enabled", () => {
+    const base = { AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k" };
+    expect(loadConfig(base).providerSort).toBeNull();
+    expect(loadConfig({ ...base, OPENROUTER_PROVIDER_SORT: "throughput" }).providerSort).toBe("throughput");
+    expect(() => loadConfig({ ...base, OPENROUTER_PROVIDER_SORT: "fastest" })).toThrow(ConfigError);
+  });
+
   test("rejects a missing OpenRouter key and out-of-range port", () => {
     expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN })).toThrow(ConfigError);
     expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k", PORT: "70000" })).toThrow(ConfigError);
@@ -37,6 +44,8 @@ describe("loadConfig", () => {
       perceptionFallback: "deepseek/deepseek-v4.1-flash",
       decision: "jev-latest",
       decisionFallback: "openai/gpt-6-luna-decisions",
+      planner: "anthropic/claude-haiku-5.5",
+      plannerFallback: "deepseek/deepseek-v4.1-flash",
     });
     const overridden = loadConfig({
       AGENT_BEARER_TOKEN: TOKEN,

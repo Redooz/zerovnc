@@ -48,6 +48,8 @@ const LEDGER = join(REPORTS, "ledger.json");
 const FROZEN = join(REPORTS, "frozen.json");
 const CASES = join(HERE, "cases.json");
 const PER_CASE_ESTIMATE_USD = 0.005;
+// Baseline runs use the previous perception prompt: BENCH_PERCEPTION_PROMPT=perception.v3.md
+const PERCEPTION_FILE = process.env.BENCH_PERCEPTION_PROMPT ?? PERCEPTION_PROMPT_FILE;
 const MODEL_TIMEOUT_MS = 90_000;
 
 interface BenchCase {
@@ -280,7 +282,7 @@ async function main(): Promise<void> {
   const setup = {
     datasetHash,
     models: { ...config.models } as Record<string, string>,
-    prompts: { perception: loadPromptFile(PERCEPTION_PROMPT_FILE).version, decision: loadPromptFile("decision.v1.md").version, questionTemplate: template } as Record<string, string>,
+    prompts: { perception: loadPromptFile(PERCEPTION_FILE).version, decision: loadPromptFile("decision.v1.md").version, questionTemplate: template } as Record<string, string>,
   };
 
   let frozen: FrozenConfig | null = null;
@@ -298,10 +300,11 @@ async function main(): Promise<void> {
 
   const retries: string[] = [];
   const baseRoutes = createModelRoutes(config, new ConsoleLogger(), {
+    perceptionPromptFile: PERCEPTION_FILE,
     retry: { onRetry: (info) => retries.push(`${info.model} attempt ${info.attempt}: ${info.reason}`) },
   });
   const cacheStats: PerceptionCacheStats = { hits: 0, misses: 0 };
-  const salt = `${loadPromptFile(PERCEPTION_PROMPT_FILE).version}|${createHash("sha256").update(loadPromptFile(PERCEPTION_PROMPT_FILE).text).digest("hex").slice(0, 12)}`;
+  const salt = `${loadPromptFile(PERCEPTION_FILE).version}|${createHash("sha256").update(loadPromptFile(PERCEPTION_FILE).text).digest("hex").slice(0, 12)}`;
   const routes = {
     ...baseRoutes,
     perception: {

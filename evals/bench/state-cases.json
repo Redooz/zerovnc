@@ -1,0 +1,153 @@
+{
+  "version": "state-cases.v1",
+  "note": "Controls expected to be visibly disabled, by exact label. exhaustive=true: the list is complete (checked by eye on the screenshot), so any other flagged element is a false positive. exhaustive=false (older screens, not labelled for disabled state): flags are reported for manual review, not counted.",
+  "cases": [
+    {
+      "id": "d_fact_all_p1",
+      "split": "development",
+      "screenshot": "d_fact_all_p1",
+      "disabled": [
+        "Anterior"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "d_fact_ruiz_p1",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p1",
+      "disabled": [
+        "Anterior"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "d_fact_ruiz_p4",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p4",
+      "disabled": [
+        "Siguiente"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "h3_fact_all_p2",
+      "split": "held_out",
+      "screenshot": "h3_fact_all_p2",
+      "disabled": [],
+      "exhaustive": true
+    },
+    {
+      "id": "h3_fact_pan_p1",
+      "split": "held_out",
+      "screenshot": "h3_fact_pan_p1",
+      "disabled": [
+        "Anterior",
+        "Siguiente"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "h3_fact_ferr_last",
+      "split": "held_out",
+      "screenshot": "h3_fact_ferr_last",
+      "disabled": [
+        "Siguiente"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "h3_fact_abarrotes",
+      "split": "held_out",
+      "screenshot": "h3_fact_abarrotes",
+      "disabled": [
+        "Anterior",
+        "Siguiente"
+      ],
+      "exhaustive": true
+    },
+    {
+      "id": "clientes_crear_form",
+      "split": "development",
+      "screenshot": "clientes_crear_form",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "clientes_crear_validacion",
+      "split": "development",
+      "screenshot": "clientes_crear_validacion",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "clientes_filtered_abarrotes",
+      "split": "development",
+      "screenshot": "clientes_filtered_abarrotes",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "clientes_filtered_sin_resultados",
+      "split": "development",
+      "screenshot": "clientes_filtered_sin_resultados",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "clientes_list",
+      "split": "development",
+      "screenshot": "clientes_list",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "home",
+      "split": "development",
+      "screenshot": "home",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "home_clean",
+      "split": "development",
+      "screenshot": "home_clean",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "menu_comercial",
+      "split": "development",
+      "screenshot": "menu_comercial",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "menu_maestros",
+      "split": "development",
+      "screenshot": "menu_maestros",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "r2_cliente_edit",
+      "split": "development",
+      "screenshot": "r2_cliente_edit",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "r2_menu_cartera",
+      "split": "development",
+      "screenshot": "r2_menu_cartera",
+      "disabled": [],
+      "exhaustive": false
+    },
+    {
+      "id": "r2_menu_ventas",
+      "split": "development",
+      "screenshot": "r2_menu_ventas",
+      "disabled": [],
+      "exhaustive": false
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { ScriptedPlanner, stubModels } from "../support/agent-doubles.ts";
 import { describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -63,6 +64,8 @@ function config(): AppConfig {
       perceptionFallback: "deepseek/deepseek-v4.1-flash",
       decision: "jev-latest",
       decisionFallback: "openai/gpt-6-luna-decisions",
+      planner: "anthropic/claude-haiku-5.5",
+      plannerFallback: "deepseek/deepseek-v4.1-flash",
     },
   };
 }
@@ -109,6 +112,8 @@ describe("shutdown with active and queued tasks", () => {
         },
       },
       artifacts: { async storeScreenshot() { return { ref: "x", sha256: "0", bytes: 0 }; } },
+      models: stubModels(),
+      planner: new ScriptedPlanner(async () => "end"),
     });
 
     const holder = await submit(app, "Tarea que ocupa el escritorio");

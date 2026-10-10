@@ -59,6 +59,44 @@ export interface DecisionsCall {
   readonly timeoutMs: number;
 }
 
+// Wire shapes for tool-calling chat completions (OpenAI-compatible).
+export type WireMessage =
+  | { readonly role: "system"; readonly content: string | readonly ContentPart[] }
+  | { readonly role: "user"; readonly content: string | readonly ContentPart[] }
+  | {
+      readonly role: "assistant";
+      readonly content: string | null;
+      readonly tool_calls?: readonly { readonly id: string; readonly type: "function"; readonly function: { readonly name: string; readonly arguments: string } }[];
+    }
+  | { readonly role: "tool"; readonly tool_call_id: string; readonly content: string };
+
+export interface WireTool {
+  readonly type: "function";
+  readonly function: { readonly name: string; readonly description: string; readonly parameters: Record<string, unknown> };
+}
+
+export interface ToolChatCall {
+  readonly model: string;
+  readonly messages: readonly WireMessage[];
+  readonly tools: readonly WireTool[];
+  readonly signal: AbortSignal;
+  readonly timeoutMs: number;
+  readonly maxTokens: number;
+}
+
+export interface ToolChatReply {
+  readonly content: string | null;
+  readonly toolCalls: readonly { readonly id: string; readonly name: string; readonly arguments: string }[];
+  readonly finishReason: string | null;
+  readonly servedBy: string;
+  readonly promptTokens: number | null;
+  readonly completionTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+  readonly costUsd: number | null;
+  readonly latencyMs: number;
+}
+
 export interface DecisionsReply {
   readonly answers: Readonly<Record<string, unknown>>;
   readonly servedBy: string;
@@ -76,7 +114,14 @@ export class OpenRouterClient {
     private readonly baseUrl: string = OPENROUTER_BASE_URL,
     private readonly fetchImpl: FetchLike = (url, init) => fetch(url, init),
     private readonly now: () => number = () => performance.now(),
+    // OpenRouter provider routing for chat completions: "throughput" asks for the fastest provider
+    // of the same model. Null keeps OpenRouter's default load balancing.
+    private readonly providerSort: "throughput" | "latency" | "price" | null = null,
   ) {}
+
+  private routing(): { provider: { sort: string } } | Record<string, never> {
+    return this.providerSort === null ? {} : { provider: { sort: this.providerSort } };
+  }
 
   async complete(call: ChatCall): Promise<ChatReply> {
     const started = this.now();
@@ -88,10 +133,32 @@ export class OpenRouterClient {
         max_tokens: call.maxTokens,
         temperature: 0,
         usage: { include: true },
+        ...this.routing(),
       },
       call,
     );
     return parseChatBody(body, call.model, Math.round(this.now() - started));
+  }
+
+  // Chat completion with tool declarations (planner). Tool-call arguments come back as the raw JSON
+  // string the model wrote; the caller validates them.
+  async completeWithTools(call: ToolChatCall): Promise<ToolChatReply> {
+    const started = this.now();
+    const body = await this.post(
+      `${this.baseUrl.replace(/\/+$/, "")}/chat/completions`,
+      {
+        model: call.model,
+        messages: call.messages,
+        tools: call.tools,
+        tool_choice: "auto",
+        max_tokens: call.maxTokens,
+        temperature: 0,
+        usage: { include: true },
+        ...this.routing(),
+      },
+      call,
+    );
+    return parseToolChatBody(body, call.model, Math.round(this.now() - started));
   }
 
   async decide(call: DecisionsCall): Promise<DecisionsReply> {
@@ -174,6 +241,44 @@ function parseChatBody(body: unknown, requestedModel: string, latencyMs: number)
   const servedBy = typeof record.model === "string" && record.model !== "" ? record.model : requestedModel;
   return {
     content,
+    finishReason: typeof first?.finish_reason === "string" ? first.finish_reason : null,
+    servedBy,
+    promptTokens: numberOrNull(usage.prompt_tokens),
+    completionTokens: numberOrNull(usage.completion_tokens),
+    cacheReadTokens: numberOrNull(details.cached_tokens),
+    cacheWriteTokens: numberOrNull(details.cache_write_tokens),
+    costUsd: numberOrNull(usage.cost),
+    latencyMs,
+  };
+}
+
+function parseToolChatBody(body: unknown, requestedModel: string, latencyMs: number): ToolChatReply {
+  const record = asRecord(body, "provider body");
+  const choices = record.choices;
+  const first = Array.isArray(choices) ? (choices[0] as Record<string, unknown> | undefined) : undefined;
+  const message = (first?.message ?? undefined) as Record<string, unknown> | undefined;
+  if (message === undefined) throw new ModelCallError("malformed", "provider returned no message");
+  const content = typeof message.content === "string" && message.content.trim() !== "" ? message.content : null;
+  const rawCalls = Array.isArray(message.tool_calls) ? message.tool_calls : [];
+  const toolCalls = rawCalls.map((raw, index) => {
+    const call = asRecord(raw, "tool call");
+    const fn = asRecord(call.function, "tool call function");
+    if (typeof fn.name !== "string" || fn.name === "") throw new ModelCallError("malformed", "tool call has no name");
+    return {
+      id: typeof call.id === "string" && call.id !== "" ? call.id : `call_${index}`,
+      name: fn.name,
+      arguments: typeof fn.arguments === "string" ? fn.arguments : "{}",
+    };
+  });
+  if (content === null && toolCalls.length === 0) {
+    throw new ModelCallError("malformed", "provider returned neither text nor tool calls");
+  }
+  const usage = (record.usage ?? {}) as Record<string, unknown>;
+  const details = (usage.prompt_tokens_details ?? {}) as Record<string, unknown>;
+  const servedBy = typeof record.model === "string" && record.model !== "" ? record.model : requestedModel;
+  return {
+    content,
+    toolCalls,
     finishReason: typeof first?.finish_reason === "string" ? first.finish_reason : null,
     servedBy,
     promptTokens: numberOrNull(usage.prompt_tokens),

@@ -6,7 +6,7 @@ import { createApp, type App } from "../../src/bootstrap/server.ts";
 import type { AppConfig } from "../../src/bootstrap/config.ts";
 import type { Logger } from "../../src/application/ports/logger.ts";
 import type { Clock } from "../../src/application/ports/clock.ts";
-import { NOT_IMPLEMENTED_SUMMARY } from "../../src/application/usecases/execute-task.ts";
+import { ScriptedPlanner, stubModels } from "../support/agent-doubles.ts";
 import { createScreenshot } from "../../src/domain/desktop/screenshot.ts";
 import { INTERRUPTED_BY_RESTART_SUMMARY } from "../../src/application/usecases/fail-interrupted-tasks.ts";
 
@@ -20,6 +20,9 @@ const clock: Clock = { now: () => new Date("2026-10-10T12:00:00.000Z") };
 // Stub desktop: connects instantly and returns a blank screen, so HTTP tests never
 // open network connections or write artifacts to disk.
 const stubs = {
+  models: stubModels(),
+  // Ends every task with a blocker: no model calls, no input beyond one observation.
+  planner: new ScriptedPlanner(async () => [{ name: "report_blocker", args: { reason: "prueba" } }]),
   desktopSessions: {
     async connect() {
       return {
@@ -60,6 +63,8 @@ function config(overrides: Partial<AppConfig> = {}): AppConfig {
       perceptionFallback: "deepseek/deepseek-v4.1-flash",
       decision: "jev-latest",
       decisionFallback: "openai/gpt-6-luna-decisions",
+      planner: "anthropic/claude-haiku-5.5",
+      plannerFallback: "deepseek/deepseek-v4.1-flash",
     },
     ...overrides,
   };
@@ -155,7 +160,7 @@ describe("GET /tasks/{id}", () => {
     const accepted = (await (await post(app, validBody)).json()) as { task_id: string };
     const final = await waitForTerminal(app, accepted.task_id);
     expect(final.estado).toBe("fallida");
-    expect(final.resumen).toBe(NOT_IMPLEMENTED_SUMMARY);
+    expect(final.resumen).toBe("La tarea no se pudo completar: prueba");
   });
 
   test("never includes the desktop password in any response", async () => {
