@@ -61,7 +61,8 @@ export function createApp(config: AppConfig, overrides: AppOverrides = {}): App 
   const ownership = new DesktopOwnership(clock);
   const traceRecorder = new TraceRecorder(
     { repository: new SqliteTraceRepository(database), clock, ids, logger },
-    [config.bearerToken],
+    // Provider credentials are registered for redaction as well.
+    [config.bearerToken, config.openRouterApiKey],
   );
   const executeTask = new ExecuteTask({
     repository,

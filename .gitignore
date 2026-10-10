@@ -9,10 +9,12 @@ node_modules/
 
 # Local runtime data
 data/
-artifacts/
+/artifacts/
 *.sqlite
 *.sqlite-*
 *.db
 
 # Eval reports
 reports/
+evals/bench/dataset/
+diagnostics/

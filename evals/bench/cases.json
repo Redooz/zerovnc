@@ -1,0 +1,489 @@
+{
+  "version": "bench-cases.v1",
+  "note": "Labels are written from the captured screenshots (1280x800). A grounded case expects the element whose center lies in `box` and whose kind fits the case field. An abstain case expects no candidate to match (reason 'any' accepts any abstention). Development cases tune; held-out cases are confirmed once.",
+  "cases": [
+    {
+      "id": "dev-list-crear",
+      "split": "development",
+      "screenshot": "clientes_list",
+      "field": "control",
+      "intent": "Crear cliente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 1156,
+          "y": 174,
+          "w": 108,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-list-exportar",
+      "split": "development",
+      "screenshot": "clientes_list",
+      "field": "control",
+      "intent": "Exportar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 1068,
+          "y": 174,
+          "w": 82,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-list-filtrar",
+      "split": "development",
+      "screenshot": "clientes_list",
+      "field": "control",
+      "intent": "Filtrar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 509,
+          "y": 119,
+          "w": 64,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "dev-list-eliminar-missing",
+      "split": "development",
+      "screenshot": "clientes_list",
+      "field": "control",
+      "intent": "Eliminar cliente",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    },
+    {
+      "id": "dev-form-nit",
+      "split": "development",
+      "screenshot": "clientes_crear_form",
+      "field": "field",
+      "intent": "campo NIT",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 27,
+          "y": 169,
+          "w": 425,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "dev-form-telefono",
+      "split": "development",
+      "screenshot": "clientes_crear_form",
+      "field": "field",
+      "intent": "campo Teléfono",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 476,
+          "y": 169,
+          "w": 425,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "dev-form-aplicar",
+      "split": "development",
+      "screenshot": "clientes_crear_form",
+      "field": "control",
+      "intent": "botón Aplicar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 830,
+          "y": 365,
+          "w": 71,
+          "h": 22
+        }
+      }
+    },
+    {
+      "id": "dev-form-correo-missing",
+      "split": "development",
+      "screenshot": "clientes_crear_form",
+      "field": "field",
+      "intent": "campo Fecha de nacimiento",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    },
+    {
+      "id": "dev-comercial-ventas",
+      "split": "development",
+      "screenshot": "menu_comercial",
+      "field": "control",
+      "intent": "menú Ventas",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 80,
+          "y": 92,
+          "w": 208,
+          "h": 22
+        }
+      }
+    },
+    {
+      "id": "dev-home-entendido",
+      "split": "development",
+      "screenshot": "home",
+      "field": "control",
+      "intent": "botón Entendido",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 795,
+          "y": 472,
+          "w": 92,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "ho-home-archivo",
+      "split": "held_out",
+      "screenshot": "home_clean",
+      "field": "control",
+      "intent": "menú Archivo",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 10,
+          "y": 38,
+          "w": 64,
+          "h": 22
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-maestros-clientes",
+      "split": "held_out",
+      "screenshot": "menu_maestros",
+      "field": "control",
+      "intent": "opción Clientes",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 289,
+          "y": 62,
+          "w": 208,
+          "h": 27
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-filtro-nombre",
+      "split": "held_out",
+      "screenshot": "clientes_filtered_abarrotes",
+      "field": "field",
+      "intent": "campo Nombre",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 23,
+          "y": 121,
+          "w": 150,
+          "h": 20
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-filtro-limpiar",
+      "split": "held_out",
+      "screenshot": "clientes_filtered_abarrotes",
+      "field": "control",
+      "intent": "botón Limpiar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 585,
+          "y": 119,
+          "w": 74,
+          "h": 23
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-sin-resultados-exportar",
+      "split": "held_out",
+      "screenshot": "clientes_filtered_sin_resultados",
+      "field": "control",
+      "intent": "botón Exportar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 1068,
+          "y": 174,
+          "w": 82,
+          "h": 24
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-filtrado-correo-missing",
+      "split": "held_out",
+      "screenshot": "clientes_filtered_abarrotes",
+      "field": "field",
+      "intent": "campo Correo",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      },
+      "round": 1
+    },
+    {
+      "id": "dev-valid-nit-error",
+      "split": "development",
+      "screenshot": "clientes_crear_validacion",
+      "field": "field",
+      "intent": "campo NIT",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 27,
+          "y": 217,
+          "w": 425,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "dev-valid-guardar-semantico",
+      "split": "development",
+      "screenshot": "clientes_crear_validacion",
+      "field": "control",
+      "intent": "guardar el cliente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 830,
+          "y": 439,
+          "w": 71,
+          "h": 22
+        }
+      }
+    },
+    {
+      "id": "dev-valid-salir-semantico",
+      "split": "development",
+      "screenshot": "clientes_crear_validacion",
+      "field": "control",
+      "intent": "salir del formulario sin guardar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 757,
+          "y": 439,
+          "w": 67,
+          "h": 22
+        }
+      }
+    },
+    {
+      "id": "dev-valid-imprimir-missing",
+      "split": "development",
+      "screenshot": "clientes_crear_validacion",
+      "field": "control",
+      "intent": "botón Imprimir",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    },
+    {
+      "id": "ho-valid-cerrar",
+      "split": "held_out",
+      "screenshot": "clientes_crear_validacion",
+      "field": "control",
+      "intent": "botón Cerrar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 757,
+          "y": 439,
+          "w": 67,
+          "h": 22
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho-valid-ciudad",
+      "split": "held_out",
+      "screenshot": "clientes_crear_validacion",
+      "field": "field",
+      "intent": "campo Ciudad",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 27,
+          "y": 274,
+          "w": 425,
+          "h": 24
+        }
+      },
+      "round": 1
+    },
+    {
+      "id": "ho2-cartera-facturas",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_menu_cartera",
+      "field": "control",
+      "intent": "opción Facturas",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 169,
+          "y": 62,
+          "w": 208,
+          "h": 28
+        }
+      }
+    },
+    {
+      "id": "ho2-cartera-pedidos-missing",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_menu_cartera",
+      "field": "control",
+      "intent": "opción Pedidos",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    },
+    {
+      "id": "ho2-ventas-pedidos",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_menu_ventas",
+      "field": "control",
+      "intent": "opción Pedidos",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 289,
+          "y": 90,
+          "w": 208,
+          "h": 27
+        }
+      }
+    },
+    {
+      "id": "ho2-ventas-maestros",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_menu_ventas",
+      "field": "control",
+      "intent": "opción Maestros",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 80,
+          "y": 63,
+          "w": 208,
+          "h": 27
+        }
+      }
+    },
+    {
+      "id": "ho2-edit-direccion",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_cliente_edit",
+      "field": "field",
+      "intent": "campo Dirección",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 476,
+          "y": 234,
+          "w": 425,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "ho2-edit-correo",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_cliente_edit",
+      "field": "field",
+      "intent": "campo Correo",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 27,
+          "y": 280,
+          "w": 425,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "ho2-edit-ciudad",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_cliente_edit",
+      "field": "field",
+      "intent": "campo Ciudad",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 27,
+          "y": 235,
+          "w": 425,
+          "h": 25
+        }
+      }
+    },
+    {
+      "id": "ho2-edit-aplicar",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_cliente_edit",
+      "field": "control",
+      "intent": "botón Aplicar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 830,
+          "y": 387,
+          "w": 71,
+          "h": 22
+        }
+      }
+    },
+    {
+      "id": "ho2-edit-fecha-missing",
+      "split": "held_out",
+      "round": 2,
+      "screenshot": "r2_cliente_edit",
+      "field": "field",
+      "intent": "campo Fecha de nacimiento",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    }
+  ]
+}

@@ -29,4 +29,27 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN })).toThrow(ConfigError);
     expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k", PORT: "70000" })).toThrow(ConfigError);
   });
+
+  test("model IDs default to the Phase 3 choices and can be overridden without code changes", () => {
+    const defaults = loadConfig({ AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k" }).models;
+    expect(defaults).toEqual({
+      perception: "anthropic/claude-haiku-5.5",
+      perceptionFallback: "deepseek/deepseek-v4.1-flash",
+      decision: "jev-latest",
+      decisionFallback: "openai/gpt-6-luna-decisions",
+    });
+    const overridden = loadConfig({
+      AGENT_BEARER_TOKEN: TOKEN,
+      OPENROUTER_API_KEY: "k",
+      PERCEPTION_MODEL: "google/gemini-x",
+      DECISION_FALLBACK_MODEL: "openai/other-model",
+    }).models;
+    expect(overridden.perception).toBe("google/gemini-x");
+    expect(overridden.decisionFallback).toBe("openai/other-model");
+  });
+
+  test("malformed model IDs are rejected at startup", () => {
+    expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k", DECISION_MODEL: "bad model; drop" })).toThrow(/DECISION_MODEL/);
+    expect(() => loadConfig({ AGENT_BEARER_TOKEN: TOKEN, OPENROUTER_API_KEY: "k", PERCEPTION_MODEL: "" })).toThrow(ConfigError);
+  });
 });

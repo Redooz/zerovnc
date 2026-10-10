@@ -1,23 +1,11 @@
 // Execution vocabulary used by later phases. Defined now so that ports, traces,
-// and evals share one language. No behavior lives here yet.
+// and evals share one language.
 
 import type { TaskId } from "../tasks/task.ts";
 
-// What the agent saw at one moment. Actions reference the observation they used.
-export interface Observation {
-  readonly id: string;
-  readonly taskId: TaskId;
-  readonly capturedAt: Date;
-  readonly screenshotRef: string | null;
-  readonly elements: readonly ObservedElement[];
-}
-
-export interface ObservedElement {
-  readonly label: string;
-  readonly kind: "control" | "field" | "table" | "text" | "icon" | "other";
-  readonly value: string | null;
-  readonly box: { readonly x: number; readonly y: number; readonly w: number; readonly h: number };
-}
+// Observation types live in domain/perception/observation.ts; re-exported so
+// execution code has one import path.
+export type { Observation, ObservedElement } from "../perception/observation.ts";
 
 export type Action =
   | { readonly kind: "click"; readonly x: number; readonly y: number; readonly observationId: string }
@@ -35,14 +23,6 @@ export interface Plan {
   readonly completionConditions: readonly string[];
 }
 
-export interface Decision {
-  readonly question: string;
-  readonly options: readonly string[];
-  readonly answer: string;
-  readonly confidence: number;
-  readonly model: string;
-}
-
 export type TraceEventKind =
   | "task_received"
   | "task_started"
@@ -55,6 +35,7 @@ export type TraceEventKind =
   | "observation"
   | "plan"
   | "decision"
+  | "model_call"
   | "action"
   | "verification"
   | "cancelled"

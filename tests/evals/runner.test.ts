@@ -223,7 +223,65 @@ describe("HTTP agent client timeouts", () => {
     }
   });
 
+  test("a request near the deadline is capped by the remaining budget, not the fixed timeout", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: (req) => (req.method === "POST" ? Response.json({ task_id: "t1" }) : new Promise<Response>(() => {})),
+    });
+    try {
+      // Fixed request timeout is 10 s; the task limit is 300 ms. The run must end near 300 ms.
+      const client = new HttpAgentClient(`http://localhost:${server.port}`, "token-for-test-only-123", 10_000);
+      const started = Date.now();
+      const report = await runEvaluation({
+        fixtures: [loaded("E1", "terminada")],
+        agent: client,
+        desktop: null,
+        access: ACCESS,
+        secrets: [PASSWORD],
+        pollIntervalMs: 50,
+        deadlineMs: 300,
+      });
+      const elapsed = Date.now() - started;
+      expect(report.runs[0]?.timedOut).toBe(true);
+      expect(report.runs[0]?.verdict).toBe("fail");
+      expect(elapsed).toBeLessThan(2_000);
+    } finally {
+      server.stop(true);
+    }
+  });
+
+  test("a terminal answer that arrives after the deadline is never accepted", async () => {
+    const server = Bun.serve({
+      port: 0,
+      fetch: async (req) => {
+        if (req.method === "POST") return Response.json({ task_id: "t1" });
+        // Answers "terminada" only after the 300 ms limit has passed.
+        await Bun.sleep(600);
+        return Response.json({ estado: "terminada", resumen: "respuesta: 45" });
+      },
+    });
+    try {
+      const client = new HttpAgentClient(`http://localhost:${server.port}`, "token-for-test-only-123", 10_000);
+      const report = await runEvaluation({
+        fixtures: [loaded("E3", "terminada", { respuesta_esperada: "45" })],
+        agent: client,
+        desktop: new FakeDesktop(OK_EVIDENCE),
+        access: ACCESS,
+        secrets: [PASSWORD],
+        pollIntervalMs: 50,
+        deadlineMs: 300,
+      });
+      const run = report.runs[0];
+      expect(run?.timedOut).toBe(true);
+      expect(run?.actualStatus).not.toBe("terminada");
+      expect(run?.verdict).toBe("fail");
+    } finally {
+      server.stop(true);
+    }
+  });
+
   test("the last poll sleep is capped at the remaining task budget", async () => {
+
     const time = fakeTime();
     const sleeps: number[] = [];
     const agent = new ScriptedAgent(() => ({ estado: "en_curso", resumen: "" }));
