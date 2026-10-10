@@ -1,0 +1,18 @@
+# Planning files (kept local, not versioned)
+design/*plan*.md
+
+# Secrets
+.env
+
+# Dependencies and build output
+node_modules/
+
+# Local runtime data
+data/
+artifacts/
+*.sqlite
+*.sqlite-*
+*.db
+
+# Eval reports
+reports/

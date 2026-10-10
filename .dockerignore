@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.example
+node_modules
+data
+artifacts
+reports
+design
+tests
+evals
+*.sqlite
+*.sqlite-*
+*.db
+Dockerfile
+compose.yaml
