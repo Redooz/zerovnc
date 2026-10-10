@@ -13,7 +13,8 @@
     "diagnose": "bun run src/bootstrap/diagnose.ts",
     "bench:decisions": "bun run evals/bench/decisions.ts",
     "bench:matrix": "bun run evals/bench/matrix.ts",
-    "bench:cache": "bun run evals/bench/cache.ts"
+    "bench:cache": "bun run evals/bench/cache.ts",
+    "bench:state": "bun run evals/bench/state.ts"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^1.1.0",
