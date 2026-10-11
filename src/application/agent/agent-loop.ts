@@ -83,7 +83,11 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<LoopOutcome> 
       observeFailures = 0;
     }
 
-    transcript.push({ kind: "user", text: renderState(state, remaining(), input.notes) });
+    const stateText = renderState(state, remaining(), input.notes);
+    // Recorded every cycle, so a trace shows whether learning reached the planner at all.
+    const offered = renderNotes(input.notes ?? [], state.startScreenKey);
+    if (offered !== null) input.trace("knowledge_offered", { cycle, notes: offered.count });
+    transcript.push({ kind: "user", text: stateText });
     const compacted = compactTranscript(transcript, DEFAULT_COMPACTION);
     if (compacted.report.shortened > 0 || compacted.report.omitted > 0) {
       input.trace("compaction", { ...compacted.report, cycle });

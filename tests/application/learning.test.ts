@@ -171,3 +171,13 @@ describe("what a later task reads", () => {
     expect(without).toBe(withEmpty);
   });
 });
+describe("learning is visible in the trace", () => {
+  test("a cycle that offers notes records how many, and a task with no notes records nothing", async () => {
+    const run = await runTask({ plan: CLICK_THEN_VERIFY });
+    const second = await runTask({ plan: CLICK_THEN_VERIFY, learning: true });
+    expect(run.notes).toHaveLength(1);
+    // The second task starts on the same screen, so the first task's note applies to it.
+    expect(second.notes).toHaveLength(1);
+    expect(second.notes[0]!.steps).toEqual(['clicked "Guardar"']);
+  });
+});

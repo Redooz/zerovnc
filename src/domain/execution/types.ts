@@ -38,6 +38,7 @@ export type TraceEventKind =
   | "observation_attempt"
   | "stalled"
   | "knowledge_saved"
+  | "knowledge_offered"
   | "knowledge_error"
   | "tool_invocation"
   | "compaction"

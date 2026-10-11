@@ -96,6 +96,7 @@ export function createApp(config: AppConfig, overrides: AppOverrides = {}): App 
     knowledge: new SqliteKnowledgeRepository(database),
     learning: config.learningEnabled,
   };
+  logger.info("knowledge configured", { learning: config.learningEnabled === true ? "on" : "off" });
   const executeTask = new ExecuteTask({
     repository,
     clock,
