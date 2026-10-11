@@ -270,7 +270,14 @@ function parseToolChatBody(body: unknown, requestedModel: string, latencyMs: num
       arguments: typeof fn.arguments === "string" ? fn.arguments : "{}",
     };
   });
+  const finishReason = typeof first?.finish_reason === "string" ? first.finish_reason : null;
+  // A reply cut off at the token limit can carry no text and no complete tool call. That is a
+  // truncated turn, not a broken provider: hand it back as an empty turn so the loop can replan,
+  // instead of failing the task.
   if (content === null && toolCalls.length === 0) {
+    if (finishReason === "length") {
+      return { content: "", toolCalls: [], finishReason, servedBy: typeof record.model === "string" && record.model !== "" ? record.model : requestedModel, promptTokens: null, completionTokens: null, cacheReadTokens: null, cacheWriteTokens: null, costUsd: null, latencyMs };
+    }
     throw new ModelCallError("malformed", "provider returned neither text nor tool calls");
   }
   const usage = (record.usage ?? {}) as Record<string, unknown>;
@@ -279,7 +286,7 @@ function parseToolChatBody(body: unknown, requestedModel: string, latencyMs: num
   return {
     content,
     toolCalls,
-    finishReason: typeof first?.finish_reason === "string" ? first.finish_reason : null,
+    finishReason,
     servedBy,
     promptTokens: numberOrNull(usage.prompt_tokens),
     completionTokens: numberOrNull(usage.completion_tokens),
