@@ -140,6 +140,7 @@ function centerOf(element: ObservedElement): { x: number; y: number } {
   return { x: Math.floor(element.box.x + element.box.w / 2), y: Math.floor(element.box.y + element.box.h / 2) };
 }
 
+// A successful action on a grounded control or field. `subject` is the label only.
 function disabledRefusal(label: string): ToolResult {
   return { status: "refused", message: `"${label}" is disabled; nothing was clicked` };
 }
@@ -175,7 +176,7 @@ function clickControlTool(deps: DesktopToolDeps) {
       if (grounded.status === "abstained") return groundingRefusal("control", grounded.reason, grounded.detail);
       if (grounded.value.disabled === true) return disabledRefusal(grounded.value.label);
       const target = centerOf(grounded.value);
-      return sendBatch(deps, [{ kind: "click", ...target, observationId: deps.state.observation.id }], `clicked "${grounded.value.label}"`);
+      return withSubject(sendBatch(deps, [{ kind: "click", ...target, observationId: deps.state.observation.id }], `clicked "${grounded.value.label}"`), `clicked "${grounded.value.label}"`);
     },
   } satisfies ToolDefinition<z.ZodType<{ control: string }>>;
 }
@@ -218,13 +219,16 @@ function replaceFieldTool(deps: DesktopToolDeps) {
       if (grounded.value.disabled === true) return disabledRefusal(grounded.value.label);
       const target = centerOf(grounded.value);
       const observationId = deps.state.observation.id;
-      return sendBatch(
-        deps,
-        [
-          { kind: "click", ...target, observationId },
-          { kind: "select_all_and_type", text: input.text, observationId },
-        ],
-        `replaced the text of "${grounded.value.label}"`,
+      return withSubject(
+        sendBatch(
+          deps,
+          [
+            { kind: "click", ...target, observationId },
+            { kind: "select_all_and_type", text: input.text, observationId },
+          ],
+          `replaced the text of "${grounded.value.label}"`,
+        ),
+        `filled in "${grounded.value.label}"`,
       );
     },
   } satisfies ToolDefinition<z.ZodType<{ field: string; text: string }>>;
@@ -358,6 +362,13 @@ function reportBlockerTool(deps: DesktopToolDeps) {
       return ok("blocker recorded; the task will end as failed");
     },
   } satisfies ToolDefinition<z.ZodType<{ reason: string }>>;
+}
+
+// Adds the UI target to a successful result, so the run can be reduced to a reusable procedure.
+// The label is the only thing kept: the typed value is never part of the note.
+async function withSubject(result: Promise<ToolResult>, subject: string): Promise<ToolResult> {
+  const settled = await result;
+  return settled.status === "ok" ? { ...settled, subject } : settled;
 }
 
 // Sends one batch of inputs. Records the input before sending, so any input invalidates

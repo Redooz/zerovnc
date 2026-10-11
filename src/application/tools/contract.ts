@@ -12,6 +12,10 @@ export interface ToolResult {
   // Model-facing text. Never contains secrets: the desktop password is not known here.
   readonly message: string;
   readonly data?: Readonly<Record<string, unknown>>;
+  // The UI target this acted on, as a label only ("Clientes", "Nombre"). Set by tools that ground
+  // a control or field, so a verified task can be reduced to a reusable procedure. Never a value,
+  // a record identity, or typed text.
+  readonly subject?: string;
 }
 
 export interface ToolCallContext {
@@ -48,6 +52,8 @@ export interface ToolInvocationRecord {
   readonly message: string;
   readonly reason: string | null;
   readonly durationMs: number;
+  // UI target label, when the tool acted on one.
+  readonly subject?: string;
 }
 
 export interface ToolSetOptions {
@@ -111,6 +117,7 @@ export class ToolSet {
         status: result.status,
         message: result.message,
         reason,
+        ...(result.subject === undefined ? {} : { subject: result.subject }),
         durationMs: this.options.now() - started,
       });
       return result;

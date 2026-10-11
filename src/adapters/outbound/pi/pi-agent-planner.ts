@@ -16,9 +16,11 @@ import { readFileSync } from "node:fs";
 
 // Planner prompt, versioned like the other prompts. Its version is recorded in each cycle's trace.
 export const PLANNER_PROMPT_FILE = "planner.v3.md";
-// A planner reply is a tool call or a short summary. Output tokens cost about 3.6 ms each, so a long
-// reply is expensive; 800 tokens leaves room for the final summary.
-export const PLANNER_MAX_TOKENS = 800;
+// A planner reply is a tool call or a short summary, and tool arguments can be long. A live run
+// showed that an 800-token cap truncated replies mid tool call, which surfaced as a malformed reply
+// and failed the task, so the cap is generous again. Idle turns are bounded by the loop's stall stop
+// instead of by a token limit.
+export const PLANNER_MAX_TOKENS = 2_000;
 
 export function loadPlannerPrompt(): PromptFile {
   return parsePromptFile(readFileSync(new URL(`./prompts/${PLANNER_PROMPT_FILE}`, import.meta.url), "utf8"));

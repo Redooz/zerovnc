@@ -84,3 +84,23 @@ describe("provider routing", () => {
     expect("provider" in bodies[0]!).toBe(false);
   });
 });
+
+describe("a reply cut off at the token limit", () => {
+  test("with no content and no tool call it is an empty truncated turn, not a malformed failure", async () => {
+    const { client } = clientReturning({ choices: [{ finish_reason: "length", message: { role: "assistant", content: "" } }] });
+    const reply = await client.completeWithTools(call);
+    expect(reply.finishReason).toBe("length");
+    expect(reply.content).toBe("");
+    expect(reply.toolCalls).toEqual([]);
+  });
+
+  test("an empty reply that was not truncated is still a malformed failure", async () => {
+    const { client } = clientReturning({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "" } }] });
+    await expect(client.completeWithTools(call)).rejects.toMatchObject({ kind: "malformed" });
+  });
+
+  test("a truncated reply that still has text is returned with its reason", async () => {
+    const { client } = clientReturning({ choices: [{ finish_reason: "length", message: { role: "assistant", content: "Half a reply" } }] });
+    expect(await client.completeWithTools(call)).toMatchObject({ content: "Half a reply", finishReason: "length" });
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { normalizeContext, type Tool } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
-import { PiAgentPlanner, loadPlannerPrompt } from "../../../src/adapters/outbound/pi/pi-agent-planner.ts";
+import { PiAgentPlanner, loadPlannerPrompt, PLANNER_MAX_TOKENS } from "../../../src/adapters/outbound/pi/pi-agent-planner.ts";
 import { toWireMessages, toWireTools } from "../../../src/adapters/outbound/pi/openrouter-stream.ts";
 import { toPiTools } from "../../../src/adapters/outbound/pi/pi-tool-mapper.ts";
 import { fromPiMessages, toPiMessages } from "../../../src/adapters/outbound/pi/pi-transcript-mapper.ts";
@@ -206,6 +206,8 @@ describe("PiAgentPlanner", () => {
   test("the planner prompt file is versioned", () => {
     const prompt = loadPlannerPrompt();
     expect(prompt.version).toBe("planner.v3");
+    // A live run truncated replies at an 800-token cap, which surfaced as a malformed reply.
+    expect(PLANNER_MAX_TOKENS).toBe(2_000);
     expect(prompt.text).toContain("verify_result");
     expect(prompt.text).toContain("revise the plan with set_plan");
     expect(prompt.text).toContain("Never write a condition about history");

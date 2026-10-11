@@ -3,6 +3,7 @@
 // advances the input version, so a verification taken before input can never pass.
 import type { Observation } from "../../domain/perception/observation.ts";
 import type { ToolStatus } from "./contract.ts";
+import { screenKeyOf } from "../knowledge/knowledge.ts";
 
 export interface PlanRecord {
   readonly goal: string;
@@ -44,6 +45,10 @@ export class TaskRunState {
   verification: VerificationRecord | null = null;
   // Set by report_blocker; the loop ends the task as fallida.
   blocker: string | null = null;
+  // Fingerprint of the screen the task started from; empty until the first observation.
+  startScreenKey: string | null = null;
+  // UI targets acted on, in order, as labels only. Becomes a note when the task is verified.
+  readonly actedSubjects: string[] = [];
   private readonly log: ProgressEntry[] = [];
 
   // Called before any desktop input is sent, whether or not it succeeds.
@@ -54,6 +59,13 @@ export class TaskRunState {
 
   setObservation(observation: Observation): void {
     this.observation = observation;
+    if (this.startScreenKey === null) this.startScreenKey = screenKeyOf(observation);
+  }
+
+  // Records a successful action on a UI target. Refused or failed actions teach nothing.
+  noteActed(subject: string): void {
+    if (subject.trim() === "" || this.actedSubjects.at(-1) === subject) return;
+    this.actedSubjects.push(subject);
   }
 
   setPlan(plan: Omit<PlanRecord, "version">): void {

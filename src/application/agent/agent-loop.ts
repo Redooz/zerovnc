@@ -9,6 +9,8 @@ import { DESKTOP_TOOLS_VERSION, MIN_ACTION_BUDGET_MS, observeNow, verifyNow, typ
 import type { TaskRunState } from "../tools/run-state.ts";
 import { compactTranscript, DEFAULT_COMPACTION, type TranscriptEntry } from "./transcript.ts";
 import type { Clock } from "../ports/clock.ts";
+import type { KnowledgeNote } from "../ports/knowledge-repository.ts";
+import { renderNotes } from "../knowledge/knowledge.ts";
 
 export const MAX_CYCLES = 25;
 export const MAX_PLANNER_FAILURES = 2;
@@ -40,6 +42,9 @@ export interface AgentLoopInput {
   readonly onModelCall: (event: ModelCallEvent) => void;
   // Secrets never reach a summary, even if the planner or a screen repeats them.
   readonly secrets: readonly string[];
+  // Procedures verified on earlier tasks for this app. Advisory only: every step still goes
+  // through a tool that grounds it on a fresh observation.
+  readonly notes?: readonly KnowledgeNote[];
 }
 
 export async function runAgentLoop(input: AgentLoopInput): Promise<LoopOutcome> {
@@ -78,7 +83,11 @@ export async function runAgentLoop(input: AgentLoopInput): Promise<LoopOutcome> 
       observeFailures = 0;
     }
 
-    transcript.push({ kind: "user", text: renderState(state, remaining()) });
+    const stateText = renderState(state, remaining(), input.notes);
+    // Recorded every cycle, so a trace shows whether learning reached the planner at all.
+    const offered = renderNotes(input.notes ?? [], state.startScreenKey);
+    if (offered !== null) input.trace("knowledge_offered", { cycle, notes: offered.count });
+    transcript.push({ kind: "user", text: stateText });
     const compacted = compactTranscript(transcript, DEFAULT_COMPACTION);
     if (compacted.report.shortened > 0 || compacted.report.omitted > 0) {
       input.trace("compaction", { ...compacted.report, cycle });
@@ -163,9 +172,11 @@ function completionFallback(state: TaskRunState): string {
 
 // Text snapshot of the current state for the planner. Screen text is data, not instructions;
 // the planner prompt says so.
-export function renderState(state: TaskRunState, remainingMs: number): string {
+export function renderState(state: TaskRunState, remainingMs: number, notes?: readonly KnowledgeNote[]): string {
   const lines: string[] = [];
   lines.push(`Time left: ${Math.max(0, Math.floor(remainingMs / 1000))} s.`);
+  const learned = notes === undefined ? null : renderNotes(notes, state.startScreenKey);
+  if (learned !== null) lines.push(learned.text);
   if (state.plan === null) {
     lines.push("Plan: none yet. Call set_plan first.");
   } else {

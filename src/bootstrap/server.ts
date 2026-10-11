@@ -22,6 +22,7 @@ import { TraceRecorder } from "../application/trace/trace-recorder.ts";
 import { FileArtifactStore } from "../adapters/outbound/artifacts/file-artifact-store.ts";
 import { VncDesktopSessionFactory } from "../adapters/outbound/vnc/vnc-desktop-session.ts";
 import { SqliteTraceRepository } from "../adapters/outbound/sqlite/sqlite-trace-repository.ts";
+import { SqliteKnowledgeRepository } from "../adapters/outbound/sqlite/sqlite-knowledge-repository.ts";
 import { createModelRoutes, supportsExplicitCacheBreakpoint, type ModelRoutes } from "./models.ts";
 import { PiAgentPlanner, loadPlannerPrompt } from "../adapters/outbound/pi/pi-agent-planner.ts";
 import type { AgentPlanner } from "../application/ports/agent-planner.ts";
@@ -92,7 +93,10 @@ export function createApp(config: AppConfig, overrides: AppOverrides = {}): App 
     perceptionCacheVersion: models.perceptionPromptVersion,
     grounding: { primary: models.decision.primary, fallback: models.decision.fallback, timeoutMs: GROUNDING_TIMEOUT_MS },
     frameCache: { maxEntries: DEFAULT_FRAME_CACHE_ENTRIES, ttlMs: DEFAULT_FRAME_CACHE_TTL_MS },
+    knowledge: new SqliteKnowledgeRepository(database),
+    learning: config.learningEnabled,
   };
+  logger.info("knowledge configured", { learning: config.learningEnabled === true ? "on" : "off" });
   const executeTask = new ExecuteTask({
     repository,
     clock,
