@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { openDatabase, migrate } from "../../src/adapters/outbound/sqlite/database.ts";
+import { MIGRATIONS } from "../../src/adapters/outbound/sqlite/migrations.ts";
 import { SqliteTaskRepository } from "../../src/adapters/outbound/sqlite/sqlite-task-repository.ts";
 import { rowToTask, TaskRowMappingError, type TaskRow } from "../../src/adapters/outbound/sqlite/task-row-mapper.ts";
 import { createTask, finishTask, InvalidTaskTransitionError } from "../../src/domain/tasks/task.ts";
@@ -64,7 +65,7 @@ describe("SqliteTaskRepository", () => {
     const db = openDatabase(":memory:");
     expect(migrate(db)).toBe(0);
     const rows = db.query<{ version: number }, []>("SELECT version FROM schema_migrations").all();
-    expect(rows).toEqual([{ version: 1 }, { version: 2 }]);
+    expect(rows.map((row) => row.version)).toEqual(MIGRATIONS.map((migration) => migration.version));
     db.close();
   });
 

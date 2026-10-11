@@ -37,6 +37,8 @@ export type TraceEventKind =
   | "planner_cycle"
   | "observation_attempt"
   | "stalled"
+  | "knowledge_saved"
+  | "knowledge_error"
   | "tool_invocation"
   | "compaction"
   | "decision"

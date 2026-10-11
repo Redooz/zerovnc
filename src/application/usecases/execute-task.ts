@@ -10,6 +10,8 @@ import { GroundingService, type GroundingDeps } from "../grounding/grounding-ser
 import { runAgentLoop, DEADLINE_SUMMARY } from "../agent/agent-loop.ts";
 import { createTaskToolSet, type DesktopToolDeps } from "../tools/desktop-tools.ts";
 import { TaskRunState } from "../tools/run-state.ts";
+import { appKeyOf } from "../knowledge/knowledge.ts";
+import type { KnowledgeNote, KnowledgeRepository } from "../ports/knowledge-repository.ts";
 import type { ArtifactStore } from "../ports/artifact-store.ts";
 import type { AgentPlanner } from "../ports/agent-planner.ts";
 import type { Clock } from "../ports/clock.ts";
@@ -26,6 +28,9 @@ export const EXPIRED_QUEUE_SUMMARY =
   "La tarea venció esperando el escritorio; no se envió ninguna acción al escritorio.";
 export { DEADLINE_SUMMARY } from "../agent/agent-loop.ts";
 
+// Notes offered to one task: a safety bound on prompt size.
+export const MAX_NOTES_PER_TASK = 5;
+
 // Longest wait for trace writes before a terminal status is published.
 export const TRACE_FLUSH_BEFORE_STATUS_MS = 2_000;
 
@@ -37,6 +42,9 @@ export interface AgentRuntime {
   readonly perceptionCacheVersion: string;
   readonly grounding: Omit<GroundingDeps, "observe">;
   readonly frameCache: { readonly maxEntries: number; readonly ttlMs: number };
+  // Learned procedures. Absent means no learning; `learning` decides whether notes are read and written.
+  readonly knowledge?: KnowledgeRepository;
+  readonly learning?: boolean;
 }
 
 export interface ExecuteTaskInput {
@@ -59,6 +67,8 @@ export interface ExecuteTaskDeps {
 interface TaskOutcome {
   readonly status: TerminalStatus;
   readonly summary: string;
+  // Present when the task was verified and learning is on: a reusable procedure to store.
+  readonly note?: { readonly steps: readonly string[]; readonly screenKey: string };
 }
 
 // Runs one task: acquires the desktop lease, runs the observe-plan-act-verify loop, releases the
@@ -85,6 +95,7 @@ export class ExecuteTask {
       this.trace(task.id, "task_finished", { status: outcome.status, summary: outcome.summary });
       await this.deps.trace.flush(TRACE_FLUSH_BEFORE_STATUS_MS);
       await this.deps.repository.save(finishTask(task, outcome.status, outcome.summary, this.deps.clock.now()));
+      await this.remember(task.id, input.desktop.url, outcome);
     } catch (error) {
       await this.failAfterError(input.taskId);
       throw error;
@@ -143,6 +154,7 @@ export class ExecuteTask {
       const tools = createTaskToolSet(toolDeps, {
         now: () => this.deps.clock.now().getTime(),
         onInvocation: (record) => {
+          if (record.subject !== undefined && record.status === "ok") toolDeps.state.noteActed(record.subject);
           this.trace(task.id, "tool_invocation", {
             tool: record.tool,
             invocation_id: record.invocationId,
@@ -154,6 +166,7 @@ export class ExecuteTask {
           });
         },
       });
+      const notes = await this.learnedNotes(task.id, input.desktop.url);
 
       const outcome = await runAgentLoop({
         instruction: task.instruction,
@@ -168,11 +181,16 @@ export class ExecuteTask {
         },
         onModelCall: (event) => this.traceModelCall(task.id, event),
         secrets: [input.desktop.password],
+        notes,
       });
       if (outcome.kind === "stopped") {
         return { status: "fallida", summary: this.summaryAfterAbort(task.id, lease.signal) };
       }
-      return { status: outcome.status, summary: outcome.summary };
+      const note =
+        outcome.status === "terminada" && toolDeps.state.startScreenKey !== null && toolDeps.state.actedSubjects.length > 0
+          ? { steps: [...toolDeps.state.actedSubjects], screenKey: toolDeps.state.startScreenKey }
+          : undefined;
+      return { status: outcome.status, summary: outcome.summary, note };
     } catch (error) {
       if (lease.signal.aborted) return { status: "fallida", summary: this.summaryAfterAbort(task.id, lease.signal) };
       if (error instanceof DesktopError) {
@@ -216,6 +234,30 @@ export class ExecuteTask {
       deadlineAt: task.deadlineAt,
       signal,
     };
+  }
+
+  // Notes a verified procedure for later tasks on the same app. Learning must never fail a task:
+  // a read or write error is logged and ignored.
+  private async remember(taskId: TaskId, desktopUrl: string, outcome: TaskOutcome): Promise<void> {
+    const repository = this.deps.agent.knowledge;
+    if (repository === undefined || this.deps.agent.learning !== true || outcome.note === undefined) return;
+    try {
+      await repository.save({ appKey: appKeyOf(desktopUrl), screenKey: outcome.note.screenKey, steps: outcome.note.steps, taskId });
+      this.trace(taskId, "knowledge_saved", { steps: outcome.note.steps.length });
+    } catch (error) {
+      this.trace(taskId, "knowledge_error", { reason: error instanceof Error ? error.name : "unknown" });
+    }
+  }
+
+  // Notes for this app, read once per task. Empty when learning is off.
+  private async learnedNotes(_taskId: TaskId, desktopUrl: string): Promise<readonly KnowledgeNote[]> {
+    const repository = this.deps.agent.knowledge;
+    if (repository === undefined || this.deps.agent.learning !== true) return [];
+    try {
+      return await repository.forApp(appKeyOf(desktopUrl), MAX_NOTES_PER_TASK);
+    } catch {
+      return [];
+    }
   }
 
   private traceModelCall(taskId: TaskId, event: ModelCallEvent): void {

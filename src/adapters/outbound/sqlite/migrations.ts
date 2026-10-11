@@ -40,4 +40,19 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX trace_events_task_idx ON trace_events (task_id, seq);
     `,
   },
+  {
+    version: 3,
+    name: "create_knowledge_notes",
+    sql: `
+      CREATE TABLE knowledge_notes (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        app_key     TEXT NOT NULL,
+        screen_key  TEXT NOT NULL,
+        steps       TEXT NOT NULL,
+        task_id     TEXT NOT NULL,
+        created_at  TEXT NOT NULL
+      );
+      CREATE INDEX knowledge_notes_app_idx ON knowledge_notes (app_key, screen_key, created_at);
+    `,
+  },
 ];

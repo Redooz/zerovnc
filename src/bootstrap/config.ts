@@ -32,6 +32,9 @@ const ConfigSchema = z.object({
   DECISION_FALLBACK_MODEL: ModelIdSchema.default(DEFAULT_MODELS.decisionFallback),
   PLANNER_MODEL: ModelIdSchema.default(DEFAULT_MODELS.planner),
   PLANNER_FALLBACK_MODEL: ModelIdSchema.default(DEFAULT_MODELS.plannerFallback),
+  // Reuse procedures verified by earlier tasks on the same app. Off by default: a note is
+  // advisory, and turning it off removes the only feature whose prompt text changes per task.
+  LEARNING_ENABLED: z.enum(["true", "false"]).default("false"),
   // OpenRouter provider routing for chat completions. "none" keeps OpenRouter's default.
   OPENROUTER_PROVIDER_SORT: z.enum(["throughput", "latency", "price", "none"]).default("none"),
   TASK_TIMEOUT_MS: z.coerce
@@ -50,6 +53,8 @@ export interface AppConfig {
   readonly artifactDir: string;
   readonly taskTimeoutMs: number;
   readonly models: ModelConfig;
+  // Absent means learning is off; the safe reading for a literal config.
+  readonly learningEnabled?: boolean;
   // Optional so existing callers need not set it; undefined means OpenRouter's default routing.
   readonly providerSort?: "throughput" | "latency" | "price" | null;
 }
@@ -88,6 +93,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     databasePath: values.DATABASE_PATH,
     artifactDir: values.ARTIFACT_DIR,
     taskTimeoutMs: values.TASK_TIMEOUT_MS,
+    learningEnabled: values.LEARNING_ENABLED === "true",
     providerSort: values.OPENROUTER_PROVIDER_SORT === "none" ? null : values.OPENROUTER_PROVIDER_SORT,
     models: {
       perception: values.PERCEPTION_MODEL,
