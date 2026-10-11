@@ -39,9 +39,10 @@ describe("perception adapter", () => {
 
   test("the shipped prompt tells the model not to enumerate every table cell", () => {
     const shipped = loadPromptFile(PERCEPTION_PROMPT_FILE);
-    expect(shipped.version).toBe("perception.v3");
+    expect(shipped.version).toBe("perception.v5");
     expect(shipped.text).toContain("table_row");
-    expect(shipped.text).toContain("do not list every cell")
+    expect(shipped.text).toContain("do not list every cell");
+    expect(shipped.text).toContain('"d":1');
     expect(shipped.text).toContain("currently selected option");
   });
 });

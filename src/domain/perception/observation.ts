@@ -39,6 +39,12 @@ export type ElementValue =
   | { readonly state: "not_applicable" }
   | { readonly state: "unknown" };
 
+// A numbered candidate box drawn on a screenshot so a model can answer by number.
+export interface NumberedBox {
+  readonly number: number;
+  readonly box: Box;
+}
+
 export interface ObservedElement {
   readonly id: string;
   readonly label: string;
@@ -46,6 +52,8 @@ export interface ObservedElement {
   readonly value: ElementValue;
   readonly box: Box;
   readonly visible: boolean;
+  // True only when the control is visibly greyed out or inactive. Absent means not disabled.
+  readonly disabled?: boolean;
 }
 
 // "labels": `from` is a label that names field `to`.

@@ -484,6 +484,289 @@
         "kind": "abstain",
         "reason": "any"
       }
+    },
+    {
+      "id": "dev-fact-all-siguiente",
+      "split": "development",
+      "screenshot": "d_fact_all_p1",
+      "field": "control",
+      "intent": "página siguiente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 164,
+          "y": 672,
+          "w": 88,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-fact-all-filtrar",
+      "split": "development",
+      "screenshot": "d_fact_all_p1",
+      "field": "control",
+      "intent": "Filtrar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 347,
+          "y": 119,
+          "w": 64,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-fact-all-exportar",
+      "split": "development",
+      "screenshot": "d_fact_all_p1",
+      "field": "control",
+      "intent": "Exportar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 1183,
+          "y": 155,
+          "w": 82,
+          "h": 23
+        }
+      }
+    },
+    {
+      "id": "dev-fact-all-eliminar-missing",
+      "split": "development",
+      "screenshot": "d_fact_all_p1",
+      "field": "control",
+      "intent": "Eliminar factura",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      }
+    },
+    {
+      "id": "dev-fact-ruiz1-limpiar",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p1",
+      "field": "control",
+      "intent": "Limpiar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 423,
+          "y": 119,
+          "w": 74,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-fact-ruiz1-cliente",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p1",
+      "field": "field",
+      "intent": "campo Cliente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 23,
+          "y": 121,
+          "w": 150,
+          "h": 21
+        }
+      }
+    },
+    {
+      "id": "dev-fact-ruiz4-anterior",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p4",
+      "field": "control",
+      "intent": "página anterior",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 14,
+          "y": 373,
+          "w": 78,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "dev-fact-ruiz4-siguiente",
+      "split": "development",
+      "screenshot": "d_fact_ruiz_p4",
+      "field": "control",
+      "intent": "página siguiente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 164,
+          "y": 373,
+          "w": 88,
+          "h": 24
+        }
+      }
+    },
+    {
+      "id": "ho3-all2-anterior",
+      "split": "held_out",
+      "screenshot": "h3_fact_all_p2",
+      "field": "control",
+      "intent": "página anterior",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 14,
+          "y": 672,
+          "w": 78,
+          "h": 24
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-all2-siguiente",
+      "split": "held_out",
+      "screenshot": "h3_fact_all_p2",
+      "field": "control",
+      "intent": "página siguiente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 164,
+          "y": 672,
+          "w": 88,
+          "h": 24
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-all2-estado",
+      "split": "held_out",
+      "screenshot": "h3_fact_all_p2",
+      "field": "field",
+      "intent": "campo Estado",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 185,
+          "y": 121,
+          "w": 150,
+          "h": 21
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-pan-exportar",
+      "split": "held_out",
+      "screenshot": "h3_fact_pan_p1",
+      "field": "control",
+      "intent": "Exportar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 1183,
+          "y": 155,
+          "w": 82,
+          "h": 23
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-pan-cliente",
+      "split": "held_out",
+      "screenshot": "h3_fact_pan_p1",
+      "field": "field",
+      "intent": "campo Cliente",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 23,
+          "y": 121,
+          "w": 150,
+          "h": 21
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-pan-pedido-missing",
+      "split": "held_out",
+      "screenshot": "h3_fact_pan_p1",
+      "field": "control",
+      "intent": "Pedidos",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-ferr-anterior",
+      "split": "held_out",
+      "screenshot": "h3_fact_ferr_last",
+      "field": "control",
+      "intent": "página anterior",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 14,
+          "y": 511,
+          "w": 78,
+          "h": 24
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-ferr-limpiar",
+      "split": "held_out",
+      "screenshot": "h3_fact_ferr_last",
+      "field": "control",
+      "intent": "Limpiar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 423,
+          "y": 119,
+          "w": 74,
+          "h": 24
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-abarrotes-filtrar",
+      "split": "held_out",
+      "screenshot": "h3_fact_abarrotes",
+      "field": "control",
+      "intent": "Filtrar",
+      "expected": {
+        "kind": "grounded",
+        "box": {
+          "x": 347,
+          "y": 119,
+          "w": 64,
+          "h": 24
+        }
+      },
+      "round": 3
+    },
+    {
+      "id": "ho3-abarrotes-eliminar-missing",
+      "split": "held_out",
+      "screenshot": "h3_fact_abarrotes",
+      "field": "control",
+      "intent": "Eliminar factura",
+      "expected": {
+        "kind": "abstain",
+        "reason": "any"
+      },
+      "round": 3
     }
   ]
 }

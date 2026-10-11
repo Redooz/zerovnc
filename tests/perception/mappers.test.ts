@@ -185,6 +185,8 @@ describe("prompt files", () => {
 
   test("the shipped prompts declare versions", () => {
     expect(loadPromptFile("perception.v3.md").version).toBe("perception.v3");
+    expect(loadPromptFile("perception.v4.md").version).toBe("perception.v4");
+    expect(loadPromptFile("perception.v5.md").version).toBe("perception.v5");
     expect(loadPromptFile("decision.v1.md").version).toBe("decision.v1");
   });
 });
@@ -215,5 +217,81 @@ describe("value-only defects", () => {
     const draft = mapPerceptionReply(reply([good("e1", { value: { state: "selected" }, box: { x: 1250, y: 0, w: 80, h: 30 } })]), SCREEN);
     expect(draft.elements).toHaveLength(0);
     expect(draft.rejectedElements).toBe(1);
+  });
+});
+
+describe("disabled state", () => {
+  const screen = { width: 100, height: 100 };
+  const base = { label: "Siguiente", kind: "button", value: { state: "not_applicable" }, box: { x: 1, y: 1, w: 20, h: 10 }, visible: true };
+  const reply = (extra: Record<string, unknown>[]): string => JSON.stringify({ elements: extra.map((e, i) => ({ id: `e${i + 1}`, ...base, ...e })), relations: [] });
+
+  test("disabled is kept only when true; false and absent are the same", () => {
+    const draft = mapPerceptionReply(reply([{ disabled: true }, { disabled: false }, {}]), screen);
+    expect(draft.elements[0]).toMatchObject({ disabled: true });
+    expect("disabled" in draft.elements[1]!).toBe(false);
+    expect("disabled" in draft.elements[2]!).toBe(false);
+  });
+
+  test("a non-boolean disabled marks the element as rejected rather than guessed", () => {
+    const draft = mapPerceptionReply(reply([{ disabled: "si" }]), screen);
+    expect(draft.elements).toHaveLength(0);
+    expect(draft.rejectedElements).toBe(1);
+  });
+});
+
+describe("compact perception format (perception.v5)", () => {
+  const screen = { width: 1280, height: 800 };
+  const compact = JSON.stringify({
+    elements: [
+      { i: "e1", l: "Cliente", k: "label", b: [23, 108, 40, 12] },
+      { i: "e2", l: "Cliente", k: "text_field", b: [23, 121, 150, 21], v: "Ana" },
+      { i: "e3", l: "Notas", k: "text_field", b: [23, 160, 150, 21], s: "empty" },
+      { i: "e4", l: "Teléfono", k: "text_field", b: [23, 190, 150, 21], s: "unknown" },
+      { i: "e5", l: "Siguiente", k: "button", b: [164, 374, 88, 24], d: 1 },
+      { i: "e6", l: "Guardar", k: "button", b: [10, 20, 80, 30] },
+    ],
+    relations: [["labels", "e1", "e2"]],
+  });
+
+  test("expands short keys, value states, disabled, and relations", () => {
+    const draft = mapPerceptionReply(compact, screen);
+    expect(draft.rejectedElements).toBe(0);
+    expect(draft.elements).toEqual([
+      { id: "e1", label: "Cliente", kind: "label", value: { state: "not_applicable" }, box: { x: 23, y: 108, w: 40, h: 12 }, visible: true },
+      { id: "e2", label: "Cliente", kind: "text_field", value: { state: "text", text: "Ana" }, box: { x: 23, y: 121, w: 150, h: 21 }, visible: true },
+      { id: "e3", label: "Notas", kind: "text_field", value: { state: "empty" }, box: { x: 23, y: 160, w: 150, h: 21 }, visible: true },
+      { id: "e4", label: "Teléfono", kind: "text_field", value: { state: "unknown" }, box: { x: 23, y: 190, w: 150, h: 21 }, visible: true },
+      { id: "e5", label: "Siguiente", kind: "button", value: { state: "not_applicable" }, box: { x: 164, y: 374, w: 88, h: 24 }, visible: true, disabled: true },
+      { id: "e6", label: "Guardar", kind: "button", value: { state: "not_applicable" }, box: { x: 10, y: 20, w: 80, h: 30 }, visible: true },
+    ]);
+    expect(draft.relations).toEqual([{ kind: "labels", from: "e1", to: "e2" }]);
+  });
+
+  test("a compact element with a bad box or kind is rejected, never repaired into a guess", () => {
+    const draft = mapPerceptionReply(
+      JSON.stringify({ elements: [{ i: "e1", l: "A", k: "button", b: [1, 2, 3] }, { i: "e2", l: "B", k: "wizard", b: [1, 2, 3, 4] }, { i: "e3", l: "C", k: "button", b: [1, 2, 3, 4] }] }),
+      screen,
+    );
+    expect(draft.elements.map((e) => e.id)).toEqual(["e3"]);
+    expect(draft.rejectedElements).toBe(2);
+  });
+
+  test("an unreadable value state is repaired to unknown, as in the long form", () => {
+    const draft = mapPerceptionReply(JSON.stringify({ elements: [{ i: "e1", l: "A", k: "text_field", b: [1, 2, 3, 4], s: "maybe" }] }), screen);
+    expect(draft.elements[0]!.value).toEqual({ state: "unknown" });
+  });
+
+  test("the long form of perception.v3 and v4 still maps to the same elements", () => {
+    const long = JSON.stringify({
+      elements: [{ id: "e1", label: "Siguiente", kind: "button", value: { state: "not_applicable" }, box: { x: 164, y: 374, w: 88, h: 24 }, visible: true, disabled: true }],
+      relations: [{ kind: "labels", from: "e1", to: "e1" }],
+    });
+    expect(mapPerceptionReply(long, screen).elements[0]).toMatchObject({ id: "e1", disabled: true });
+  });
+
+  test("the same screen costs about half as many characters as the long form", () => {
+    const draft = mapPerceptionReply(compact, screen);
+    const longForm = JSON.stringify({ elements: draft.elements, relations: draft.relations });
+    expect(compact.length / longForm.length).toBeLessThan(0.65);
   });
 });

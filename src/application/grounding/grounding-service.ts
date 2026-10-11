@@ -314,7 +314,7 @@ export class GroundingService {
 // Text a decision model may read. Coordinates are deliberately absent.
 export function describe(element: ObservedElement): string {
   const value = element.value.state === "text" ? `value "${element.value.text}"` : `value ${element.value.state}`;
-  return `${element.kind} "${element.label}" (${value})`;
+  return `${element.kind} "${element.label}" (${value}${element.disabled === true ? ", disabled" : ""})`;
 }
 
 export function toEvidence(observation: Observation): EvidenceItem[] {

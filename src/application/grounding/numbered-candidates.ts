@@ -2,8 +2,7 @@
 // model picks a number, and code maps the number back to an observed element.
 // The mapping lives here so the model never outputs coordinates.
 import { INSUFFICIENT_EVIDENCE, NONE_OPTION, type ChoiceQuestion } from "../../domain/decisions/decision.ts";
-import { type ControlKind, type Observation, type ObservedElement } from "../../domain/perception/observation.ts";
-import type { NumberedBox } from "../../adapters/outbound/artifacts/overlay.ts";
+import { type ControlKind, type NumberedBox, type Observation, type ObservedElement } from "../../domain/perception/observation.ts";
 import type { EvidenceItem } from "../ports/decision-model.ts";
 import { abstentionOptionLabel, candidateOptionLabel, describeInContext, duplicateOf, type QuestionTemplate } from "./grounding-service.ts";
 

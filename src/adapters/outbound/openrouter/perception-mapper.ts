@@ -28,6 +28,7 @@ const ElementSchema = z.object({
   value: ValueSchema,
   box: BoxSchema,
   visible: z.boolean(),
+  disabled: z.boolean().optional(),
 });
 
 const RelationSchema = z.object({
@@ -48,14 +49,46 @@ export interface ScreenSize {
   readonly height: number;
 }
 
+// Compact element form (perception.v5): short keys, defaults omitted.
+//   i id, l label, k kind, b [x,y,w,h], v text value, s "empty" | "unknown", d 1 disabled, h 1 hidden.
+// Anything that is not recognizable as compact is returned unchanged, so the long form (perception.v3
+// and v4) still maps, and a malformed compact element fails the same schema checks as any other.
+export function expandCompactElement(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+  const e = raw as Record<string, unknown>;
+  if (!("k" in e) && !("b" in e)) return raw;
+  if ("kind" in e || "box" in e) return raw;
+  const b = e.b;
+  const box = Array.isArray(b) && b.length === 4 ? { x: b[0], y: b[1], w: b[2], h: b[3] } : undefined;
+  let value: unknown = { state: "not_applicable" };
+  if (typeof e.v === "string") value = { state: "text", text: e.v };
+  else if (e.s === "empty" || e.s === "unknown") value = { state: e.s };
+  else if (e.v !== undefined || e.s !== undefined) value = { state: "invalid" };
+  return {
+    id: e.i,
+    label: e.l ?? "",
+    kind: e.k,
+    value,
+    box,
+    visible: e.h === 1 || e.h === true ? false : true,
+    ...(e.d === 1 || e.d === true ? { disabled: true } : {}),
+  };
+}
+
+function expandCompactRelation(raw: unknown): unknown {
+  return Array.isArray(raw) && raw.length === 3 ? { kind: raw[0], from: raw[1], to: raw[2] } : raw;
+}
+
 export function mapPerceptionReply(text: string, screen: ScreenSize): PerceptionDraft {
   const parsed = parseJson(text);
   const envelope = EnvelopeSchema.safeParse(parsed);
   if (!envelope.success) throw new ModelCallError("malformed", "perception reply has no elements list");
+  const elementsRaw = envelope.data.elements.map(expandCompactElement);
+  const relationsRaw = (envelope.data.relations ?? []).map(expandCompactRelation);
 
   // Ids that appear more than once are ambiguous: every copy is rejected.
   const idCounts = new Map<string, number>();
-  for (const raw of envelope.data.elements) {
+  for (const raw of elementsRaw) {
     const id = typeof raw === "object" && raw !== null && typeof (raw as { id?: unknown }).id === "string"
       ? (raw as { id: string }).id
       : null;
@@ -69,7 +102,7 @@ export function mapPerceptionReply(text: string, screen: ScreenSize): Perception
     rejected += 1;
     if (rejections.length < MAX_REJECTION_NOTES) rejections.push(`${who}: ${why}`);
   };
-  for (const raw of envelope.data.elements) {
+  for (const raw of elementsRaw) {
     let result = ElementSchema.safeParse(raw);
     // An element whose only defect is its value keeps its label and box; the value is
     // recorded as unknown (never invented) and the repair is noted.
@@ -86,7 +119,9 @@ export function mapPerceptionReply(text: string, screen: ScreenSize): Perception
       reject(who, `schema ${issue?.path.join(".") ?? ""} ${issue?.message ?? ""}`.trim());
       continue;
     }
-    const element = result.data;
+    // `disabled` is kept only when true; false and absent mean the same thing.
+    const { disabled, ...rest } = result.data;
+    const element: ObservedElement = disabled === true ? { ...rest, disabled: true } : rest;
     if ((idCounts.get(element.id) ?? 0) > 1) {
       reject(element.id, "duplicate id");
       continue;
@@ -110,7 +145,7 @@ export function mapPerceptionReply(text: string, screen: ScreenSize): Perception
   // Relations are kept only when both ends survived; dangling relations are dropped.
   const kept = new Set(elements.map((element) => element.id));
   const relations: ElementRelation[] = [];
-  for (const raw of envelope.data.relations ?? []) {
+  for (const raw of relationsRaw) {
     const result = RelationSchema.safeParse(raw);
     if (result.success && result.data.from !== result.data.to && kept.has(result.data.from) && kept.has(result.data.to)) {
       relations.push(result.data);

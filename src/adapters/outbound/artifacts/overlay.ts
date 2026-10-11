@@ -1,12 +1,9 @@
 // Draws numbered candidate boxes onto a copy of an RGBA screenshot, so a vision
 // model can refer to candidates by number. Uses a built-in 3x5 digit font: no
 // image dependency. Pure function over pixels; the input buffer is not modified.
-import type { Box } from "../../../domain/perception/observation.ts";
+import type { NumberedBox } from "../../../domain/perception/observation.ts";
 
-export interface NumberedBox {
-  readonly number: number;
-  readonly box: Box;
-}
+export type { NumberedBox };
 
 const BORDER = [255, 0, 0, 255] as const;
 const LABEL_BG = [255, 255, 0, 255] as const;

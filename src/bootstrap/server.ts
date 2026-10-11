@@ -22,6 +22,11 @@ import { TraceRecorder } from "../application/trace/trace-recorder.ts";
 import { FileArtifactStore } from "../adapters/outbound/artifacts/file-artifact-store.ts";
 import { VncDesktopSessionFactory } from "../adapters/outbound/vnc/vnc-desktop-session.ts";
 import { SqliteTraceRepository } from "../adapters/outbound/sqlite/sqlite-trace-repository.ts";
+import { createModelRoutes, supportsExplicitCacheBreakpoint, type ModelRoutes } from "./models.ts";
+import { PiAgentPlanner, loadPlannerPrompt } from "../adapters/outbound/pi/pi-agent-planner.ts";
+import type { AgentPlanner } from "../application/ports/agent-planner.ts";
+import { DEFAULT_FRAME_CACHE_ENTRIES, DEFAULT_FRAME_CACHE_TTL_MS } from "../application/perception/frame-cache.ts";
+import type { AgentRuntime } from "../application/usecases/execute-task.ts";
 
 // Bounds on shutdown: lease holders get this long to release, and trace writes get
 // this long to flush. Neither can hold up the process indefinitely.
@@ -39,7 +44,14 @@ export interface AppOverrides {
   readonly databasePath?: string;
   readonly desktopSessions?: DesktopSessionFactory;
   readonly artifacts?: ArtifactStore;
+  // Model routes and planner. Tests pass doubles; production builds them from configuration.
+  readonly models?: ModelRoutes;
+  readonly planner?: AgentPlanner;
 }
+
+// Per-call time limits for model requests. The task deadline also stops them (lease signal).
+export const PERCEPTION_TIMEOUT_MS = 60_000;
+export const GROUNDING_TIMEOUT_MS = 60_000;
 
 export interface App {
   readonly fetch: (request: Request) => Promise<Response>;
@@ -64,6 +76,23 @@ export function createApp(config: AppConfig, overrides: AppOverrides = {}): App 
     // Provider credentials are registered for redaction as well.
     [config.bearerToken, config.openRouterApiKey],
   );
+  const models = overrides.models ?? createModelRoutes(config, logger);
+  const planner =
+    overrides.planner ??
+    new PiAgentPlanner({
+      client: models.client,
+      primaryModel: config.models.planner,
+      fallbackModel: config.models.plannerFallback,
+      prompt: loadPlannerPrompt(),
+      cacheBreakpoint: supportsExplicitCacheBreakpoint,
+    });
+  const agent: AgentRuntime = {
+    planner,
+    perception: { primary: models.perception.primary, fallback: models.perception.fallback, timeoutMs: PERCEPTION_TIMEOUT_MS },
+    perceptionCacheVersion: models.perceptionPromptVersion,
+    grounding: { primary: models.decision.primary, fallback: models.decision.fallback, timeoutMs: GROUNDING_TIMEOUT_MS },
+    frameCache: { maxEntries: DEFAULT_FRAME_CACHE_ENTRIES, ttlMs: DEFAULT_FRAME_CACHE_TTL_MS },
+  };
   const executeTask = new ExecuteTask({
     repository,
     clock,
@@ -72,6 +101,7 @@ export function createApp(config: AppConfig, overrides: AppOverrides = {}): App 
     sessions: overrides.desktopSessions ?? new VncDesktopSessionFactory(clock),
     trace: traceRecorder,
     artifacts: overrides.artifacts ?? new FileArtifactStore(config.artifactDir),
+    agent,
   });
   const scheduler = new InProcessTaskScheduler({
     logger,

@@ -8,7 +8,7 @@ import { mapPerceptionReply } from "./perception-mapper.ts";
 
 // Current perception prompt file. Bump the file name and its version line together; the
 // version is recorded in traces and keys the benchmark's perception cache.
-export const PERCEPTION_PROMPT_FILE = "perception.v3.md";
+export const PERCEPTION_PROMPT_FILE = "perception.v5.md";
 // Large tables can produce long replies; a reply that still hits this limit is rejected
 // as truncated rather than parsed from a cut-off string.
 export const PERCEPTION_MAX_TOKENS = 8_000;

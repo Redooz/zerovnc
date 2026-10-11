@@ -12,6 +12,8 @@ export const DEFAULT_MODELS = {
   perceptionFallback: "deepseek/deepseek-v4.1-flash",
   decision: "jev-latest",
   decisionFallback: "openai/gpt-6-luna-decisions",
+  planner: "anthropic/claude-haiku-5.5",
+  plannerFallback: "deepseek/deepseek-v4.1-flash",
 } as const;
 
 // Provider/model style identifiers. Rejects whitespace, quotes, and control characters.
@@ -28,6 +30,10 @@ const ConfigSchema = z.object({
   PERCEPTION_FALLBACK_MODEL: ModelIdSchema.default(DEFAULT_MODELS.perceptionFallback),
   DECISION_MODEL: ModelIdSchema.default(DEFAULT_MODELS.decision),
   DECISION_FALLBACK_MODEL: ModelIdSchema.default(DEFAULT_MODELS.decisionFallback),
+  PLANNER_MODEL: ModelIdSchema.default(DEFAULT_MODELS.planner),
+  PLANNER_FALLBACK_MODEL: ModelIdSchema.default(DEFAULT_MODELS.plannerFallback),
+  // OpenRouter provider routing for chat completions. "none" keeps OpenRouter's default.
+  OPENROUTER_PROVIDER_SORT: z.enum(["throughput", "latency", "price", "none"]).default("none"),
   TASK_TIMEOUT_MS: z.coerce
     .number()
     .int()
@@ -44,6 +50,8 @@ export interface AppConfig {
   readonly artifactDir: string;
   readonly taskTimeoutMs: number;
   readonly models: ModelConfig;
+  // Optional so existing callers need not set it; undefined means OpenRouter's default routing.
+  readonly providerSort?: "throughput" | "latency" | "price" | null;
 }
 
 export interface ModelConfig {
@@ -51,6 +59,8 @@ export interface ModelConfig {
   readonly perceptionFallback: string;
   readonly decision: string;
   readonly decisionFallback: string;
+  readonly planner: string;
+  readonly plannerFallback: string;
 }
 
 export class ConfigError extends Error {
@@ -78,11 +88,14 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     databasePath: values.DATABASE_PATH,
     artifactDir: values.ARTIFACT_DIR,
     taskTimeoutMs: values.TASK_TIMEOUT_MS,
+    providerSort: values.OPENROUTER_PROVIDER_SORT === "none" ? null : values.OPENROUTER_PROVIDER_SORT,
     models: {
       perception: values.PERCEPTION_MODEL,
       perceptionFallback: values.PERCEPTION_FALLBACK_MODEL,
       decision: values.DECISION_MODEL,
       decisionFallback: values.DECISION_FALLBACK_MODEL,
+      planner: values.PLANNER_MODEL,
+      plannerFallback: values.PLANNER_FALLBACK_MODEL,
     },
   };
 }

@@ -1,13 +1,21 @@
 import { DesktopError } from "../../domain/desktop/errors.ts";
 import type { TraceEventKind } from "../../domain/execution/types.ts";
 import type { DesktopAccess } from "../../domain/tasks/contracts.ts";
-import { finishTask, isTerminal, type Task, type TaskId } from "../../domain/tasks/task.ts";
+import { finishTask, isTerminal, type Task, type TaskId, type TerminalStatus } from "../../domain/tasks/task.ts";
 import { DesktopExecutor } from "../desktop/desktop-executor.ts";
 import { DesktopOwnership, DesktopOwnershipError, type DesktopLease } from "../desktop/desktop-ownership.ts";
+import { PerceiveScreen, type PerceiveScreenDeps } from "../perception/perceive-screen.ts";
+import { PerceptionFrameCache } from "../perception/frame-cache.ts";
+import { GroundingService, type GroundingDeps } from "../grounding/grounding-service.ts";
+import { runAgentLoop, DEADLINE_SUMMARY } from "../agent/agent-loop.ts";
+import { createTaskToolSet, type DesktopToolDeps } from "../tools/desktop-tools.ts";
+import { TaskRunState } from "../tools/run-state.ts";
 import type { ArtifactStore } from "../ports/artifact-store.ts";
+import type { AgentPlanner } from "../ports/agent-planner.ts";
 import type { Clock } from "../ports/clock.ts";
 import type { DesktopSession, DesktopSessionFactory } from "../ports/desktop-session.ts";
 import type { IdGenerator } from "../ports/id-generator.ts";
+import type { ModelCallEvent } from "../ports/model-call-observer.ts";
 import type { TaskRepository } from "../ports/task-repository.ts";
 import { TraceRecorder } from "../trace/trace-recorder.ts";
 
@@ -16,7 +24,20 @@ export const CANCELLED_SUMMARY = "Tarea interrumpida: el servicio se está cerra
 export const INTERNAL_ERROR_SUMMARY = "Error interno durante la ejecución; la tarea no se completó.";
 export const EXPIRED_QUEUE_SUMMARY =
   "La tarea venció esperando el escritorio; no se envió ninguna acción al escritorio.";
-export const DEADLINE_SUMMARY = "La tarea alcanzó su límite de tiempo; se detuvo la interacción con el escritorio.";
+export { DEADLINE_SUMMARY } from "../agent/agent-loop.ts";
+
+// Longest wait for trace writes before a terminal status is published.
+export const TRACE_FLUSH_BEFORE_STATUS_MS = 2_000;
+
+// Model routes and planner used by every task. Per-task pieces (frame cache, perception and
+// grounding instances, tool set) are built inside ExecuteTask, so nothing is shared between tasks.
+export interface AgentRuntime {
+  readonly planner: AgentPlanner;
+  readonly perception: Omit<PerceiveScreenDeps, "cache" | "observe">;
+  readonly perceptionCacheVersion: string;
+  readonly grounding: Omit<GroundingDeps, "observe">;
+  readonly frameCache: { readonly maxEntries: number; readonly ttlMs: number };
+}
 
 export interface ExecuteTaskInput {
   readonly taskId: TaskId;
@@ -32,12 +53,18 @@ export interface ExecuteTaskDeps {
   readonly sessions: DesktopSessionFactory;
   readonly trace: TraceRecorder;
   readonly artifacts: ArtifactStore;
+  readonly agent: AgentRuntime;
 }
 
-// Runs one task. Current behaviour (Phase 2): acquires the desktop lease, connects,
-// captures an observation, releases the desktop, then ends the task as `fallida`
-// because the agent loop arrives in Phase 4. Ordering guarantee: the desktop is
-// released and the session closed before the terminal status is stored.
+interface TaskOutcome {
+  readonly status: TerminalStatus;
+  readonly summary: string;
+}
+
+// Runs one task: acquires the desktop lease, runs the observe-plan-act-verify loop, releases the
+// desktop, then publishes the terminal status. Only this use case sets the status.
+// Ordering guarantee: the desktop is released, the session closed, and the frame cache cleared
+// before the terminal status is stored.
 export class ExecuteTask {
   // Span of each running task's task_started event, used as the parent of desktop events.
   private readonly taskSpans = new Map<TaskId, string>();
@@ -55,8 +82,9 @@ export class ExecuteTask {
       const taskSpan = this.trace(task.id, "task_started", {});
       this.taskSpans.set(task.id, taskSpan);
       const outcome = await this.runOnDesktop(task, input);
-      this.trace(task.id, "task_finished", { status: "fallida", summary: outcome });
-      await this.deps.repository.save(finishTask(task, "fallida", outcome, this.deps.clock.now()));
+      this.trace(task.id, "task_finished", { status: outcome.status, summary: outcome.summary });
+      await this.deps.trace.flush(TRACE_FLUSH_BEFORE_STATUS_MS);
+      await this.deps.repository.save(finishTask(task, outcome.status, outcome.summary, this.deps.clock.now()));
     } catch (error) {
       await this.failAfterError(input.taskId);
       throw error;
@@ -66,7 +94,7 @@ export class ExecuteTask {
     }
   }
 
-  private async runOnDesktop(task: Task, input: ExecuteTaskInput): Promise<string> {
+  private async runOnDesktop(task: Task, input: ExecuteTaskInput): Promise<TaskOutcome> {
     const requestedAt = this.deps.clock.now().getTime();
     this.trace(task.id, "desktop_queued", {});
     let lease: DesktopLease;
@@ -81,16 +109,17 @@ export class ExecuteTask {
         if (error.reason === "expired") {
           this.trace(task.id, "desktop_expired", {});
           this.trace(task.id, "deadline_reached", { while: "queued" });
-          return EXPIRED_QUEUE_SUMMARY;
+          return { status: "fallida", summary: EXPIRED_QUEUE_SUMMARY };
         }
         this.trace(task.id, "cancelled", { while: "queued" });
-        return CANCELLED_SUMMARY;
+        return { status: "fallida", summary: CANCELLED_SUMMARY };
       }
       throw error;
     }
 
     this.trace(task.id, "desktop_acquired", { waited_ms: this.deps.clock.now().getTime() - requestedAt });
     let session: DesktopSession | null = null;
+    let frameCache: PerceptionFrameCache | null = null;
     try {
       session = await this.deps.sessions.connect(input.desktop, lease.signal);
       this.trace(task.id, "desktop_connected", { screen: session.screen });
@@ -108,17 +137,54 @@ export class ExecuteTask {
           parentSpanId: this.taskSpans.get(task.id) ?? null,
         },
       });
-      await executor.observe();
-      return this.summaryAfterAbort(task.id, lease.signal) ?? NOT_IMPLEMENTED_SUMMARY;
+      // One frame cache per task, cleared when the task ends.
+      frameCache = new PerceptionFrameCache({ ...this.deps.agent.frameCache, clock: this.deps.clock });
+      const toolDeps = this.toolDeps(task, executor, frameCache, lease.signal);
+      const tools = createTaskToolSet(toolDeps, {
+        now: () => this.deps.clock.now().getTime(),
+        onInvocation: (record) => {
+          this.trace(task.id, "tool_invocation", {
+            tool: record.tool,
+            invocation_id: record.invocationId,
+            tool_version: record.version,
+            status: record.status,
+            message: record.message,
+            reason: record.reason,
+            duration_ms: record.durationMs,
+          });
+        },
+      });
+
+      const outcome = await runAgentLoop({
+        instruction: task.instruction,
+        planner: this.deps.agent.planner,
+        tools,
+        toolDeps,
+        clock: this.deps.clock,
+        signal: lease.signal,
+        deadlineAt: task.deadlineAt,
+        trace: (kind, payload) => {
+          this.trace(task.id, kind as TraceEventKind, payload);
+        },
+        onModelCall: (event) => this.traceModelCall(task.id, event),
+        secrets: [input.desktop.password],
+      });
+      if (outcome.kind === "stopped") {
+        return { status: "fallida", summary: this.summaryAfterAbort(task.id, lease.signal) };
+      }
+      return { status: outcome.status, summary: outcome.summary };
     } catch (error) {
-      const aborted = this.summaryAfterAbort(task.id, lease.signal);
-      if (aborted !== null) return aborted;
+      if (lease.signal.aborted) return { status: "fallida", summary: this.summaryAfterAbort(task.id, lease.signal) };
       if (error instanceof DesktopError) {
         this.trace(task.id, "error", { reason: error.kind });
-        return `El escritorio no respondió correctamente (${error.kind}); no se realizaron acciones.`;
+        return {
+          status: "fallida",
+          summary: `El escritorio no respondió correctamente (${error.kind}); no se realizaron acciones.`,
+        };
       }
       throw error;
     } finally {
+      frameCache?.clear();
       if (session !== null) {
         await session.close().catch(() => undefined);
         this.trace(task.id, "desktop_disconnected", {});
@@ -128,10 +194,51 @@ export class ExecuteTask {
     }
   }
 
-  // Records and returns the summary when the lease was aborted by the deadline or by
-  // cancellation; returns null otherwise.
-  private summaryAfterAbort(taskId: TaskId, signal: AbortSignal): string | null {
-    if (!signal.aborted) return null;
+  // Per-task perception and grounding. Model calls observe the lease signal, so they stop at the
+  // task deadline or on cancellation, not only at the component timeouts.
+  private toolDeps(task: Task, executor: DesktopExecutor, frameCache: PerceptionFrameCache, signal: AbortSignal): DesktopToolDeps & { state: TaskRunState } {
+    const { agent } = this.deps;
+    const observe = (event: ModelCallEvent): void => this.traceModelCall(task.id, event);
+    const perception = new PerceiveScreen({
+      ...agent.perception,
+      observe,
+      cache: { store: frameCache, version: agent.perceptionCacheVersion },
+    });
+    const grounding = new GroundingService({ ...agent.grounding, observe });
+    const state = new TaskRunState();
+    return {
+      taskId: task.id,
+      executor,
+      perception,
+      grounding,
+      state,
+      clock: this.deps.clock,
+      deadlineAt: task.deadlineAt,
+      signal,
+    };
+  }
+
+  private traceModelCall(taskId: TaskId, event: ModelCallEvent): void {
+    this.trace(taskId, "model_call", {
+      role: event.role,
+      observation_id: event.observationId,
+      question_id: event.questionId,
+      configured_model: event.configuredModel,
+      served_by: event.servedBy,
+      prompt_version: event.promptVersion,
+      fallback_reason: event.fallbackReason,
+      prompt_tokens: event.promptTokens,
+      completion_tokens: event.completionTokens,
+      cost_usd: event.costUsd,
+      latency_ms: event.latencyMs,
+      outcome: event.outcome,
+      failure: event.failure,
+    });
+  }
+
+  // Returns the summary when the lease was aborted by the deadline or by cancellation.
+  // Called only after the signal aborted, so it always returns a summary.
+  private summaryAfterAbort(taskId: TaskId, signal: AbortSignal): string {
     const reason = signal.reason;
     if (reason instanceof DesktopError && reason.kind === "timeout") {
       this.trace(taskId, "deadline_reached", { while: "active" });
