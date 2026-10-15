@@ -14,13 +14,13 @@ An agent that operates API-less business apps the way a new employee would: it l
 
 Real runs, one screenshot per agent step:
 
-<p align="center"><video src="docs/demos/demo-count-overdue.mp4" controls muted loop width="640"></video></p>
+<p align="center"><video src="https://github.com/user-attachments/assets/f73209c2-e18a-4050-9bf0-9bc86c9fbfe6" controls muted loop width="640"></video></p>
 <p align="center"><sub>Counts a client's overdue invoices by filtering by client and status, then paging the whole result (SIGECOM, the training app). Done in 2 min 19 s.</sub></p>
 
-<p align="center"><video src="docs/demos/demo-update-patient.mp4" controls muted loop width="640"></video></p>
+<p align="center"><video src="https://github.com/user-attachments/assets/8edf334d-d32d-4948-b37f-e3732d455e7b" controls muted loop width="640"></video></p>
 <p align="center"><sub>Updates one field of a patient record and verifies the saved value (Clínica Los Cerezos — an app the agent had never seen). Done in 1 min 46 s.</sub></p>
 
-<p align="center"><video src="docs/demos/demo-cancel-appointment.mp4" controls muted loop width="640"></video></p>
+<p align="center"><video src="https://github.com/user-attachments/assets/15a993d6-05de-489a-888d-c41da4d74acb" controls muted loop width="640"></video></p>
 <p align="center"><sub>Cancels an appointment through a confirmation dialog and picks the reason (Clínica Los Cerezos). Done in 2 min 14 s.</sub></p>
 
 ## How it is built
