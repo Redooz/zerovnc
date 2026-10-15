@@ -27,7 +27,7 @@ Real runs, one screenshot per agent step:
 
 - Bun + TypeScript in strict hexagonal layers: `src/domain` (invariants) → `src/application` (agent loop, tools, grounding, perception, ports) → `src/adapters` (HTTP, SQLite, RFB/VNC, OpenRouter, Pi) → `src/bootstrap` (composition root and HTTP server). Domain and application code import no adapter types.
 - A custom RFB/VNC client (Raw + CopyRect by default) with bounded shutdown and deadline-capped release.
-- One loop, one source of truth: models propose targets, tools dispose, and only the loop sets `terminada` or `fallida` — always from current verification evidence, never from the planner's claim of success.
+- One loop, one source of truth: models propose targets, tools dispose, and only the loop sets `done` or `failed` — always from current verification evidence, never from the planner's claim of success.
 - Models are called through OpenRouter only (perception + the Decisions API). Prompts are versioned files, model IDs are configuration, and thresholds are per model. Counting and date arithmetic happen in code, not in the model.
 - Every run is traced: SQLite events plus screenshots and transcripts, with a timeline CLI and secret redaction in storage and summaries.
 - Verified learning: after a task finishes, the agent saves the UI targets it used, keyed to the app and starting screen. It rechecks them against the screen before reuse, keeps out record data and secrets, and discards stale notes.
